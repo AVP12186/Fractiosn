@@ -1,0 +1,6 @@
+{
+  "name": "Fraction Relic: Alchemist of the Shattered Realm",
+  "description": "A 2.5D retro pixel-art dungeon crawler teaching fractions through alchemical spell-casting, dynamic 3D shadows, and epic boss battles across progressive difficulty modes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

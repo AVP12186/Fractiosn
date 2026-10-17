@@ -1,6 +1,13 @@
 import { DungeonRoom, Difficulty, Fraction, BlockQuestion } from '../types/game';
-import { SpellCard } from '../components/PokemonBattleView';
-import { BlockDefenseQuestion } from '../components/BlockDefenseModal';
+import type { SpellCard } from '../components/PokemonBattleView';
+import type { BlockDefenseQuestion } from '../components/BlockDefenseModal';
+
+export const FINAL_FLOOR = 21;
+
+export function getStageDifficulty(floor: number, difficulty: Difficulty): number {
+  const base = floor <= 3 ? 3 : floor <= 5 ? 5 : 7;
+  return base + (difficulty === 'grandmaster' || (difficulty === 'journeyman' && floor % 2 === 0) ? 1 : 0);
+}
 
 export function getMobTierLevel(type: string, floor: number): number {
   if (floor === 1) return 1;
@@ -24,16 +31,30 @@ export function getMobTierLevel(type: string, floor: number): number {
 }
 
 export function generateRoom(floor: number, difficulty: Difficulty): DungeonRoom {
+  const room = createRoom(floor, difficulty);
+  const rating = getStageDifficulty(floor, difficulty);
+  return {
+    ...room,
+    enemies: room.enemies.map((enemy) => {
+      const hp = 4 + rating + (enemy.isBoss ? 5 : 0);
+      return { ...enemy, hp, maxHp: hp, attackPower: rating <= 4 ? 2 : rating <= 6 ? 3 : 4,
+        attackCooldown: 12 - rating * 0.6, speed: 0.65 + rating * 0.06 };
+    }),
+  };
+}
+
+function createRoom(floor: number, difficulty: Difficulty): DungeonRoom {
   // FLOOR 6: FINAL BOSS - THE FRACTION COLOSSUS
-  if (floor === 6) {
+  if (floor === 6 || floor === FINAL_FLOOR) {
     return {
-      floor: 6,
-      title: 'Fraction Tower Apex (Floor 6)',
+      floor,
+      title: `Fraction Tower Apex (Floor ${floor})`,
       subtitle: 'Final Sanctum of the Fraction Colossus',
       width: 28,
       height: 28,
       isBossRoom: true,
       cleared: false,
+      stairs: floor < FINAL_FLOOR ? { x: 0, z: -9, active: false } : undefined,
       torches: [
         { x: -10, z: -10, color: '#f59e0b', intensity: 2.2 },
         { x: 10, z: -10, color: '#f59e0b', intensity: 2.2 },
@@ -55,8 +76,8 @@ export function generateRoom(floor: number, difficulty: Difficulty): DungeonRoom
         {
           id: 'boss_colossus',
           type: 'boss',
-          name: 'The Fraction Colossus (Lv.6)',
-          level: 6,
+          name: `The Fraction Colossus (Lv.${floor})`,
+          level: floor,
           x: 0,
           z: -4,
           hp: 11,
@@ -512,6 +533,14 @@ export function generateRoom(floor: number, difficulty: Difficulty): DungeonRoom
 }
 
 export function getCardsForDifficulty(difficulty: Difficulty): SpellCard[] {
+  const cards = createCardsForDifficulty(difficulty === 'grandmaster' ? 'journeyman' : difficulty);
+  return [...cards,
+    { id: 'fifth', name: 'Cinder', type: 'fire', fraction: { n: 1, d: 5 }, color: '#f97316', bgGradient: 'from-orange-900 to-red-700' },
+    { id: 'two-fifths', name: 'Tide', type: 'frost', fraction: { n: 2, d: 5 }, color: '#38bdf8', bgGradient: 'from-blue-900 to-cyan-700' },
+  ];
+}
+
+function createCardsForDifficulty(difficulty: Difficulty): SpellCard[] {
   if (difficulty === 'apprentice') {
     return [
       { id: 'c1', name: 'Ember', type: 'fire', fraction: { n: 1, d: 2 }, color: '#ef4444', bgGradient: 'from-red-900 to-rose-700' },
@@ -521,7 +550,7 @@ export function getCardsForDifficulty(difficulty: Difficulty): SpellCard[] {
       { id: 'c5', name: 'Shard', type: 'frost', fraction: { n: 2, d: 4 }, color: '#06b6d4', bgGradient: 'from-cyan-900 to-blue-700' },
     ];
   }
-  if (difficulty === 'journeyman') {
+  {
     return [
       { id: 'c1', name: 'Flame', type: 'fire', fraction: { n: 1, d: 2 }, color: '#ef4444', bgGradient: 'from-red-900 to-rose-700' },
       { id: 'c2', name: 'Glacier', type: 'frost', fraction: { n: 1, d: 3 }, color: '#38bdf8', bgGradient: 'from-blue-900 to-cyan-700' },
@@ -531,15 +560,6 @@ export function getCardsForDifficulty(difficulty: Difficulty): SpellCard[] {
       { id: 'c6', name: 'Breeze', type: 'arcane', fraction: { n: 1, d: 6 }, color: '#14b8a6', bgGradient: 'from-teal-900 to-cyan-700' },
     ];
   }
-  // Grandmaster cards (too complex for Level 1 Slimes)
-  return [
-    { id: 'c1', name: 'Inferno', type: 'fire', fraction: { n: 7, d: 13 }, color: '#ef4444', bgGradient: 'from-red-900 to-rose-700' },
-    { id: 'c2', name: 'Blizzard', type: 'frost', fraction: { n: 11, d: 17 }, color: '#38bdf8', bgGradient: 'from-blue-900 to-cyan-700' },
-    { id: 'c3', name: 'Plasma', type: 'lightning', fraction: { n: 13, d: 19 }, color: '#eab308', bgGradient: 'from-yellow-900 to-amber-700' },
-    { id: 'c4', name: 'Meteor', type: 'fire', fraction: { n: 17, d: 23 }, color: '#f97316', bgGradient: 'from-orange-900 to-red-700' },
-    { id: 'c5', name: 'Abyss', type: 'arcane', fraction: { n: 19, d: 29 }, color: '#8b5cf6', bgGradient: 'from-purple-900 to-violet-700' },
-    { id: 'c6', name: 'Shock', type: 'lightning', fraction: { n: 23, d: 31 }, color: '#facc15', bgGradient: 'from-amber-900 to-yellow-700' },
-  ];
 }
 
 // DIVERSE BLOCK QUESTIONS IN BETWEEN FIGHTS

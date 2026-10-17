@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Enemy,
   Fraction,
@@ -9,6 +9,8 @@ import {
   addFractions,
   reduceFraction,
   PetCompanion,
+  toggleSpellCard,
+  damageEnemy,
 } from '../types/game';
 import { FormattedFraction } from './FormattedFraction';
 import { getPlayerSpriteDataURL, getMobSpriteDataURL, getLootGemSpriteDataURL } from '../graphics/pixelTextures';
@@ -50,6 +52,7 @@ interface PokemonBattleViewProps {
   onPlayerTakeDamage: (dmg: number) => void;
   onEnemyDefeated: (enemyId: string) => void;
   onFlee: () => void;
+  onEnemyUpdated: (enemy: Enemy) => void;
   onHealPlayer?: () => void;
   playerArmor?: number;
   pet?: PetCompanion | null;
@@ -67,6 +70,7 @@ export const PokemonBattleView: React.FC<PokemonBattleViewProps> = ({
   onPlayerTakeDamage,
   onEnemyDefeated,
   onFlee,
+  onEnemyUpdated,
   onHealPlayer,
   playerArmor = 1,
   pet = null,
@@ -74,10 +78,20 @@ export const PokemonBattleView: React.FC<PokemonBattleViewProps> = ({
   onTameEnemy,
 }) => {
   const [currentEnemyHp, setCurrentEnemyHp] = useState(enemy.hp);
-  // Ensure enemy always has a barrier shield to break first!
-  const [enemyShield, setEnemyShield] = useState<Fraction | null>(() => enemy.shield || { n: 1, d: 2 });
+  const [enemyShield, setEnemyShield] = useState<Fraction | null>(enemy.shield);
+  const [bossPhase, setBossPhase] = useState(enemy.bossPhase || 1);
+  const timers = useRef<Set<number>>(new Set());
+  const setTimeout = (callback: () => void, delay: number) => {
+    const id = window.setTimeout(() => { timers.current.delete(id); callback(); }, delay);
+    timers.current.add(id);
+    return id;
+  };
+  useEffect(() => () => timers.current.forEach(window.clearTimeout), []);
+  useEffect(() => {
+    onEnemyUpdated({ ...enemy, hp: currentEnemyHp, shield: enemyShield, bossPhase });
+  }, [currentEnemyHp, enemyShield, bossPhase]);
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
-  const [battleText, setBattleText] = useState(`Corrupted ${enemy.name.toUpperCase()} approached! You must shatter their barrier first!`);
+  const [battleText, setBattleText] = useState(`Corrupted ${enemy.name.toUpperCase()} approached! ${enemy.shield ? 'Shatter their barrier first!' : 'Their barrier is already down!'}`);
   const [attackAnimation, setAttackAnimation] = useState<'slash' | 'explosion' | 'lightning' | 'heal' | null>(null);
   const [enemyShaking, setEnemyShaking] = useState(false);
   const [enemyFlashing, setEnemyFlashing] = useState(false);
@@ -134,21 +148,7 @@ export const PokemonBattleView: React.FC<PokemonBattleViewProps> = ({
     if (turn !== 'player') return;
     sound.playStep();
 
-    const count = selectedCardIds.filter((id) => id === cardId).length;
-    if (count === 2) {
-      // Third click deselects
-      setSelectedCardIds(selectedCardIds.filter((id) => id !== cardId));
-    } else if (count === 1) {
-      // Second click: select twice (double-click ability!)
-      setSelectedCardIds([...selectedCardIds, cardId]);
-    } else {
-      // First click
-      if (selectedCardIds.length >= 2) {
-        setSelectedCardIds([selectedCardIds[1], cardId]);
-      } else {
-        setSelectedCardIds([...selectedCardIds, cardId]);
-      }
-    }
+    setSelectedCardIds((selected) => toggleSpellCard(selected, cardId));
   };
 
   // Trigger Enemy Counter-Attack with Block Reaction
@@ -189,14 +189,14 @@ export const PokemonBattleView: React.FC<PokemonBattleViewProps> = ({
     if (isCorrect) {
       setBlockOutcome('blocked');
       sound.playShieldBlock();
-      setBattleText(`🛡️ BLOCKED! Arc raised the alchemical shield! Took 1 DMG!${petDef > 0 ? ` (Pet gave +${petDef} DEF)` : ''}`);
-      setDamageNumber({ val: 1, isPlayer: true });
+      setBattleText('BLOCKED! Correct fraction — no damage!');
+      setDamageNumber({ val: 0, isPlayer: true });
       setPlayerShaking(true);
-      onPlayerTakeDamage(1);
+      onPlayerTakeDamage(0);
     } else {
       setBlockOutcome('failed');
       sound.playPlayerHurt();
-      const dmgTaken = Math.max(1, 3 - petDef);
+      const dmgTaken = Math.max(1, enemy.attackPower - petDef);
       setBattleText(`💥 BLOCK BROKEN! Direct hit from ${enemy.name.toUpperCase()}! Took ${dmgTaken} DMG!${petDef > 0 ? ` (Pet absorbed ${petDef} DMG!)` : ''}`);
       setDamageNumber({ val: dmgTaken, isPlayer: true });
       setPlayerShaking(true);
@@ -302,9 +302,9 @@ export const PokemonBattleView: React.FC<PokemonBattleViewProps> = ({
         const petAtk = pet ? pet.attackBonus : 0;
         let finalDamage = (baseDamage * (selectedCards.length > 1 ? 1.5 : 1)) + (playerArmor || 0) + petAtk;
 
-        // Critical Hit System: Exact simplest form of a fraction triggers +50% damage boost & unique flashing screen effect!
+        // Two cards making one whole reward a deliberate combination, not every reduced sum.
         const reducedCombined = reduceFraction(combinedFraction);
-        const isExactSimplest = combinedFraction.n > 0 && combinedFraction.n === reducedCombined.n && combinedFraction.d === reducedCombined.d;
+        const isExactSimplest = selectedCards.length === 2 && areFractionsEqual(reducedCombined, { n: 1, d: 1 });
 
         let wasCrit = false;
         if (isExactSimplest) {
@@ -317,7 +317,10 @@ export const PokemonBattleView: React.FC<PokemonBattleViewProps> = ({
         
         finalDamage = Math.max(1, Math.floor(finalDamage));
 
-        const nextHp = Math.max(0, currentEnemyHp - finalDamage);
+        const updatedEnemy = damageEnemy({ ...enemy, hp: currentEnemyHp, shield: enemyShield, bossPhase }, finalDamage);
+        const nextHp = updatedEnemy.hp;
+        setEnemyShield(updatedEnemy.shield);
+        setBossPhase(updatedEnemy.bossPhase || 1);
         setCurrentEnemyHp(nextHp);
         setDamageNumber({ val: wasCrit ? `${finalDamage} CRIT!` : finalDamage, isPlayer: false, isCrit: wasCrit });
         setSelectedCardIds([]);
@@ -339,7 +342,7 @@ export const PokemonBattleView: React.FC<PokemonBattleViewProps> = ({
             }, 700);
           } else {
             if (wasCrit) {
-              setBattleText(`⚡ CRITICAL HIT! Simplest Form (+50% DMG)! (${nextHp}/${enemy.maxHp} HP left)`);
+              setBattleText(`⚡ CRITICAL HIT! Whole Combo (+50% DMG)! (${nextHp}/${enemy.maxHp} HP left)`);
             } else {
               setBattleText(`Spell hit ${enemy.name} for ${finalDamage} DMG! (${nextHp}/${enemy.maxHp} HP remaining)`);
             }

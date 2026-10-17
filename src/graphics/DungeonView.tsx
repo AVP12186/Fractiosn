@@ -27,6 +27,7 @@ import {
 } from './pixelTextures';
 import { FormattedFraction } from '../components/FormattedFraction';
 import { sound } from '../audio/soundEngine';
+import type { CoopPlayer } from '../types/multiplayer';
 
 interface Projectile {
   mesh: THREE.Mesh;
@@ -60,6 +61,8 @@ interface DungeonViewProps {
   isBossRoom?: boolean;
   joystickVector?: { vx: number; vz: number };
   isBattleActive?: boolean;
+  multiplayer?: boolean;
+  remotePlayers?: CoopPlayer[];
 }
 
 export const DungeonView: React.FC<DungeonViewProps> = ({
@@ -83,6 +86,8 @@ export const DungeonView: React.FC<DungeonViewProps> = ({
   isBossRoom = false,
   joystickVector,
   isBattleActive = false,
+  multiplayer = false,
+  remotePlayers = [],
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -98,6 +103,9 @@ export const DungeonView: React.FC<DungeonViewProps> = ({
   const projectilesRef = useRef<Projectile[]>([]);
   const processedSpellTimestampRef = useRef<number>(0);
   const torchLightsRef = useRef<THREE.PointLight[]>([]);
+  const remoteMeshesRef = useRef<Map<string, THREE.Mesh>>(new Map());
+  const latest = useRef({ enemies, onMovePlayer, onTargetEnemy, multiplayer });
+  latest.current = { enemies, onMovePlayer, onTargetEnemy, multiplayer };
 
   const isBattleActiveRef = useRef(false);
   
@@ -119,9 +127,9 @@ export const DungeonView: React.FC<DungeonViewProps> = ({
 
   useEffect(() => {
     const d = Math.hypot(playerPos.x - targetPlayerPosRef.current.x, playerPos.z - targetPlayerPosRef.current.z);
-    if (d > 2.0) {
+    if (d > 0.01) {
       targetPlayerPosRef.current = { x: playerPos.x, z: playerPos.z };
-      currentPlayerPosRef.current = { x: playerPos.x, z: playerPos.z };
+      if (d > 3) currentPlayerPosRef.current = { x: playerPos.x, z: playerPos.z };
     }
   }, [playerPos.x, playerPos.z]);
 
@@ -369,7 +377,7 @@ export const DungeonView: React.FC<DungeonViewProps> = ({
         const tx = Math.max(-halfW, Math.min(halfW, pt.x));
         const tz = Math.max(-halfH, Math.min(halfH, pt.z));
         targetPlayerPosRef.current = { x: tx, z: tz };
-        onMovePlayer({ x: tx, z: tz });
+        latest.current.onMovePlayer({ x: tx, z: tz });
         sound.playStep();
       }
     };
@@ -391,7 +399,7 @@ export const DungeonView: React.FC<DungeonViewProps> = ({
       const cur = currentPlayerPosRef.current;
       let hasJoystickInput = false;
 
-      if (joy && (Math.abs(joy.vx) > 0.04 || Math.abs(joy.vz) > 0.04)) {
+      if (!isBattleActiveRef.current && joy && (Math.abs(joy.vx) > 0.04 || Math.abs(joy.vz) > 0.04)) {
         hasJoystickInput = true;
         const speed = 9.5;
         const halfW = roomWidth / 2 - 1.2;
@@ -399,6 +407,7 @@ export const DungeonView: React.FC<DungeonViewProps> = ({
 
         target.x = Math.max(-halfW, Math.min(halfW, target.x + joy.vx * speed * delta));
         target.z = Math.max(-halfH, Math.min(halfH, target.z + joy.vz * speed * delta));
+        latest.current.onMovePlayer({ ...target });
       }
 
       const dx = target.x - cur.x;
@@ -474,11 +483,11 @@ export const DungeonView: React.FC<DungeonViewProps> = ({
 
       // Animate Enemy Meshes and perform Mob AI & Contact Attacks
       enemyMeshesRef.current.forEach((grp, id) => {
-        const enemy = enemies.find((e) => e.id === id);
+        const enemy = latest.current.enemies.find((e) => e.id === id);
         if (enemy && enemy.hp > 0) {
           // AI Stalking: Slimes and mobs wander/creep toward Arc when nearby
           const distToPlayer = Math.hypot(cur.x - enemy.x, cur.z - enemy.z);
-          if (!isBattleActiveRef.current && distToPlayer > 1.3 && distToPlayer < 6.5) {
+          if (!latest.current.multiplayer && !isBattleActiveRef.current && distToPlayer > 1.3 && distToPlayer < 6.5) {
             const stalkSpeed = (enemy.type === 'slime' ? 0.7 : 0.5) * delta;
             const dirX = (cur.x - enemy.x) / distToPlayer;
             const dirZ = (cur.z - enemy.z) / distToPlayer;
@@ -487,10 +496,10 @@ export const DungeonView: React.FC<DungeonViewProps> = ({
           }
 
           // Contact attack trigger -> Initiates battle immediately when hitting a mob!
-          if (distToPlayer < 1.35 && !isInvulnerable && onTargetEnemy) {
+          if (!latest.current.multiplayer && !isBattleActiveRef.current && distToPlayer < 1.35 && !isInvulnerable && latest.current.onTargetEnemy) {
             if (now - lastMobAttackCheckRef.current > 3000) {
               lastMobAttackCheckRef.current = now;
-              onTargetEnemy(enemy);
+              latest.current.onTargetEnemy(enemy);
             }
           }
 
@@ -562,8 +571,37 @@ export const DungeonView: React.FC<DungeonViewProps> = ({
       pillarMat.dispose();
       pillarTexture.dispose();
       renderer.dispose();
+      remoteMeshesRef.current.forEach((mesh) => {
+        mesh.geometry.dispose();
+        const mat = mesh.material as THREE.MeshStandardMaterial;
+        mat.map?.dispose(); mat.dispose();
+      });
+      remoteMeshesRef.current.clear();
     };
-  }, [roomWidth, roomHeight, isBossRoom, stairs]);
+  }, [roomWidth, roomHeight, isBossRoom, stairs?.x, stairs?.z, stairs?.active]);
+
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const meshes = remoteMeshesRef.current;
+    for (const [id, mesh] of meshes) {
+      if (!remotePlayers.some((p) => p.id === id)) {
+        scene.remove(mesh); mesh.geometry.dispose();
+        const mat = mesh.material as THREE.MeshStandardMaterial;
+        mat.map?.dispose(); mat.dispose(); meshes.delete(id);
+      }
+    }
+    for (const player of remotePlayers) {
+      let mesh = meshes.get(player.id);
+      if (!mesh) {
+        const texture = createCustomPlayerTexture({ robeColor: '#10b981', hatStyle: 'wizard', accessory: 'none', wandStyle: 'crystal' });
+        mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.6), new THREE.MeshStandardMaterial({ map: texture, transparent: true, side: THREE.DoubleSide }));
+        mesh.rotation.x = -Math.PI / 6; meshes.set(player.id, mesh); scene.add(mesh);
+      }
+      mesh.position.set(player.x, player.hp > 0 ? 0.9 : 0.3, player.z);
+      mesh.rotation.z = player.hp > 0 ? 0 : Math.PI / 2;
+    }
+  }, [remotePlayers, roomWidth, roomHeight, stairs?.active]);
 
   // Dynamically update Player Quad Texture whenever characterConfig changes
   useEffect(() => {

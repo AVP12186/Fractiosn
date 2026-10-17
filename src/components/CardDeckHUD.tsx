@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Fraction, fractionToString, areFractionsEqual, addFractions, SpellType } from '../types/game';
+import { Fraction, fractionToString, areFractionsEqual, addFractions, SpellType, toggleSpellCard } from '../types/game';
 import { SpellCard } from './PokemonBattleView';
 import { FormattedFraction } from './FormattedFraction';
 import { Flame, Snowflake, Zap, Sparkles, Swords, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
@@ -8,8 +8,8 @@ interface CardDeckHUDProps {
   cards: SpellCard[];
   targetFraction: Fraction | null;
   targetName?: string;
-  onCastCard: (fraction: Fraction, spellType: SpellType) => void;
-  onOpenPokemonBattle: () => void;
+  onCastCard: (fraction: Fraction, spellType: SpellType, cardIds: string[]) => void;
+  onOpenPokemonBattle?: () => void;
   disabled?: boolean;
 }
 
@@ -39,28 +39,13 @@ export const CardDeckHUD: React.FC<CardDeckHUDProps> = ({
       : false;
 
   const handleCardToggle = (cardId: string) => {
-    if (disabled) return;
-    const count = selectedCardIds.filter((id) => id === cardId).length;
-    if (count === 2) {
-      // Third click deselects
-      setSelectedCardIds(selectedCardIds.filter((id) => id !== cardId));
-    } else if (count === 1) {
-      // Second click (double click) selects twice
-      setSelectedCardIds([...selectedCardIds, cardId]);
-    } else {
-      // First click: if already 2 selected from other cards, replace
-      if (selectedCardIds.length >= 2) {
-        setSelectedCardIds([selectedCardIds[1], cardId]);
-      } else {
-        setSelectedCardIds([...selectedCardIds, cardId]);
-      }
-    }
+    if (!disabled) setSelectedCardIds((selected) => toggleSpellCard(selected, cardId));
   };
 
   const handleCast = () => {
     if (selectedCards.length === 0 || disabled) return;
     const leadType = selectedCards[0].type;
-    onCastCard(combinedFraction, leadType);
+    onCastCard(combinedFraction, leadType, [...selectedCardIds]);
     setSelectedCardIds([]);
   };
 
@@ -198,14 +183,14 @@ export const CardDeckHUD: React.FC<CardDeckHUDProps> = ({
             <span>{selectedCards.length === 0 ? 'CHOOSE CARD' : `CAST (${fractionToString(combinedFraction)})`}</span>
           </button>
 
-          <button
+          {onOpenPokemonBattle && <button
             onClick={onOpenPokemonBattle}
             className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold font-pixel text-[9px] border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1 shrink-0 cursor-pointer"
             title="Enter retro Pokémon fight arena"
           >
             <Swords className="w-3 h-3 text-yellow-300" />
             <span>ARENA!</span>
-          </button>
+          </button>}
         </div>
 
       </div>

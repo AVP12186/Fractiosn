@@ -165,7 +165,33 @@ export function reduceFraction(f: Fraction): Fraction {
 }
 
 export function areFractionsEqual(a: Fraction, b: Fraction): boolean {
+  if (!isValidFraction(a) || !isValidFraction(b)) return false;
   return a.n * b.d === b.n * a.d;
+}
+
+export function isValidFraction(f: Fraction): boolean {
+  return Number.isSafeInteger(f?.n) && Number.isSafeInteger(f?.d) && f.d > 0;
+}
+
+export function toggleSpellCard(selected: string[], id: string): string[] {
+  if (selected.filter((value) => value === id).length === 2) return selected.filter((value) => value !== id);
+  return [...selected.slice(-1), id];
+}
+
+export function getBossPhase(enemy: Enemy, hp: number): number {
+  if (!enemy.isBoss || hp <= 0) return enemy.bossPhase || 1;
+  return hp <= enemy.maxHp / 3 ? 3 : hp <= enemy.maxHp * 2 / 3 ? 2 : 1;
+}
+
+export function damageEnemy(enemy: Enemy, damage: number): Enemy {
+  const hp = Math.max(0, enemy.hp - damage);
+  const phase = getBossPhase(enemy, hp);
+  return {
+    ...enemy, hp, bossPhase: phase,
+    shield: hp > 0 && phase > (enemy.bossPhase || 1)
+      ? phase === 3 ? { n: 5, d: 6 } : { n: 4, d: 6 }
+      : enemy.shield,
+  };
 }
 
 export function compareFractions(a: Fraction, b: Fraction): number {

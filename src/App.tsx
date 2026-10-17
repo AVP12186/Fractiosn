@@ -19,12 +19,15 @@ import {
   areFractionsEqual,
   reduceFraction,
   fractionToString,
+  damageEnemy,
 } from './types/game';
 import {
   generateRoom,
   getCardsForDifficulty,
   getBlockQuestionsForFloor,
   generateBlockDefenseQuestion,
+  FINAL_FLOOR,
+  getStageDifficulty,
 } from './data/dungeonLevels';
 import { DungeonView } from './graphics/DungeonView';
 import { CardDeckHUD } from './components/CardDeckHUD';
@@ -37,6 +40,7 @@ import { BlockDefenseModal, BlockDefenseQuestion } from './components/BlockDefen
 import { HealthSpot } from './components/HealthSpot';
 import { StoryModal } from './components/StoryModal';
 import { VirtualJoystick } from './components/VirtualJoystick';
+import { Multiplayer } from './components/Multiplayer';
 import { sound } from './audio/soundEngine';
 import {
   Volume2,
@@ -54,6 +58,9 @@ import {
 } from 'lucide-react';
 
 export default function App() {
+  const [showMultiplayer, setShowMultiplayer] = useState(() => new URLSearchParams(window.location.search).has('lobby'));
+  const castLock = useRef(false);
+  const [isCasting, setIsCasting] = useState(false);
   // Game Configuration & Screen State
   const [screen, setScreen] = useState<'title' | 'story' | 'playing' | 'gameover' | 'victory'>('title');
   const [difficulty, setDifficulty] = useState<Difficulty>('apprentice');
@@ -154,7 +161,7 @@ export default function App() {
       id: 1,
       speaker: 'Master Eldon',
       portrait: 'elder',
-      text: 'Arc, welcome to Fraction Tower! The Great Relic of Wholes has shattered into fragments across 6 treacherous floors. Solve fraction trials, defeat corrupted guardians, and climb the ancient stairs to the Apex!',
+      text: 'Arc, welcome to Fraction Tower! The Great Relic of Wholes has shattered into fragments across 21 treacherous floors. Solve fraction trials, defeat corrupted guardians, and climb the ancient stairs to the Apex!',
     },
     bossGorgon: {
       id: 2,
@@ -267,7 +274,7 @@ export default function App() {
     setIsInvulnerable(true);
     setLastDamageTime(Date.now());
 
-    const dmg = wasSaved ? Math.max(1, 2 - playerStats.armor) : Math.max(1, 4 - playerStats.armor);
+    const dmg = wasSaved ? 0 : Math.max(1, 4 - playerStats.armor);
 
     if (wasSaved) {
       showBanner(`🛡️ BLOCKED! Shield absorbed the brunt! Armor mitigated damage to ${dmg} DMG!`);
@@ -291,6 +298,8 @@ export default function App() {
 
   // Cast Spell Logic
   const handleCastSpell = (fraction: Fraction, spellType: SpellType) => {
+    if (castLock.current || pokemonBattleEnemy) return;
+    castLock.current = true; setIsCasting(true);
     sound.playSpellCast(spellType);
 
     const timestamp = Date.now();
@@ -307,6 +316,7 @@ export default function App() {
     setPlayerStats((prev) => ({ ...prev, spellsCast: prev.spellsCast + 1 }));
 
     setTimeout(() => {
+      castLock.current = false; setIsCasting(false);
       if (!targetedEnemy) {
         showBanner(`Spell burst cast with ${fractionToString(fraction)}!`);
         return;
@@ -360,7 +370,7 @@ export default function App() {
             if (e.id === targetedEnemy.id) {
               const newHp = Math.max(0, e.hp - dmg);
               if (newHp === 0) enemyDied = true;
-              return { ...e, hp: newHp };
+              return damageEnemy(e, dmg);
             }
             return e;
           })
@@ -372,51 +382,15 @@ export default function App() {
           setPlayerStats((prev) => ({
             ...prev,
             score: prev.score + 100,
-            armor: prev.armor + 1,
-            damageBonus: prev.damageBonus + 1,
+            armor: Math.min(3, prev.armor + 1),
+            damageBonus: Math.min(3, prev.damageBonus + 1),
           }));
         }
 
         setCurrentRoom((prev) => ({ ...prev, enemies: updatedEnemies }));
 
-        if (targetedEnemy.isBoss) {
-          handleBossPhaseProgression(Math.max(0, targetedEnemy.hp - dmg));
-        }
       }
     }, 450);
-  };
-
-  // Boss Phase Transition Handler
-  const handleBossPhaseProgression = (remainingHp: number) => {
-    if (remainingHp <= 0) {
-      sound.playVictoryFanfare();
-      if (playerStats.floor === 6) {
-        setPlayerStats((prev) => ({ ...prev, score: prev.score + 1500, relicShards: 6 }));
-        setActiveStoryChapter(storyChapters.victoryStory);
-        setScreen('story');
-      } else {
-        showBanner(`🏆 Boss Defeated! Tower Stairs Unlocked!`);
-        if (currentRoom.stairs) {
-          currentRoom.stairs.active = true;
-        }
-      }
-      return;
-    }
-
-    const boss = currentRoom.enemies.find((e) => e.isBoss);
-    if (!boss) return;
-
-    if (remainingHp < 80 && (boss.bossPhase || 1) < 3) {
-      boss.bossPhase = 3;
-      boss.shield = difficulty === 'grandmaster' ? { n: 5, d: 6 } : { n: 3, d: 4 };
-      sound.playBossRoar();
-      showBanner('⚡ BOSS ENTERED PHASE 3: Unlike Denominators Barrier!');
-    } else if (remainingHp < 140 && (boss.bossPhase || 1) < 2) {
-      boss.bossPhase = 2;
-      boss.shield = { n: 4, d: 6 };
-      sound.playBossRoar();
-      showBanner('⚡ BOSS ENTERED PHASE 2: Equivalent Fraction Barrier!');
-    }
   };
 
   // Trigger Block Question when room mobs are wiped
@@ -427,7 +401,7 @@ export default function App() {
       currentRoom.cleared = true;
       sound.playChamberClear();
 
-      if (playerStats.floor === 6) {
+      if (playerStats.floor === FINAL_FLOOR) {
         sound.playVictoryFanfare();
         setActiveStoryChapter(storyChapters.victoryStory);
         setScreen('story');
@@ -471,7 +445,7 @@ export default function App() {
 
   // Handle Walking Up Actual Stairs
   const handleAscendStairs = () => {
-    if (playerStats.floor >= 6) return;
+    if (playerStats.floor >= FINAL_FLOOR) return;
 
     const nextFloor = playerStats.floor + 1;
     sound.playChamberClear();
@@ -481,6 +455,7 @@ export default function App() {
       ...prev,
       floor: nextFloor,
       score: prev.score + 250,
+      hp: Math.min(prev.maxHp, prev.hp + 8),
     }));
 
     setPlayerPos({ x: 0, z: 6 });
@@ -501,7 +476,7 @@ export default function App() {
 
   // Boss attack telegraph loop
   useEffect(() => {
-    if (screen !== 'playing' || !currentRoom.isBossRoom) return;
+    if (screen !== 'playing' || !currentRoom.isBossRoom || pokemonBattleEnemy) return;
 
     const interval = setInterval(() => {
       const boss = currentRoom.enemies.find((e) => e.isBoss);
@@ -517,7 +492,7 @@ export default function App() {
     }, 450);
 
     return () => clearInterval(interval);
-  }, [screen, currentRoom.isBossRoom, currentRoom.enemies, isInvulnerable]);
+  }, [screen, currentRoom.isBossRoom, currentRoom.enemies, isInvulnerable, pokemonBattleEnemy]);
 
   // Chest Click Interactor
   const handleChestOpen = (chest: Chest) => {
@@ -541,7 +516,7 @@ export default function App() {
           <span className="font-pixel text-xs text-amber-400 drop-shadow">FRACTION TOWER</span>
           <span className="text-slate-600 font-mono text-xs">·</span>
           <span className="text-xs text-slate-300 font-retro hidden sm:inline">
-            Floor {playerStats.floor} / 6: {currentRoom.title}
+            Floor {playerStats.floor} / {FINAL_FLOOR} · Difficulty {getStageDifficulty(playerStats.floor, difficulty)}/10
           </span>
         </div>
 
@@ -550,7 +525,7 @@ export default function App() {
           {/* Relic Shards */}
           <div className="flex items-center gap-1.5 text-xs font-retro text-amber-300 bg-amber-950/40 border border-amber-800/50 px-2 py-1 rounded-lg">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>SHARDS: {playerStats.relicShards}/6</span>
+            <span>SHARDS: {playerStats.relicShards}</span>
           </div>
 
           {/* Score */}
@@ -634,6 +609,7 @@ export default function App() {
             stairs={currentRoom.stairs}
             onAscendStairs={handleAscendStairs}
             onTargetEnemy={(enemy) => {
+              if (castLock.current) return;
               setTargetEnemyId(enemy.id);
               setPokemonBattleEnemy(enemy);
             }}
@@ -681,7 +657,7 @@ export default function App() {
             handleCastSpell(fraction, spellType);
           }}
           onOpenPokemonBattle={() => {
-            if (targetedEnemy) {
+            if (targetedEnemy && !castLock.current) {
               setPokemonBattleEnemy(targetedEnemy);
             } else if (currentRoom.enemies.length > 0) {
               setPokemonBattleEnemy(currentRoom.enemies[0]);
@@ -689,6 +665,7 @@ export default function App() {
               showBanner('No monsters remaining in this room!');
             }
           }}
+          disabled={isCasting}
         />
       )}
 
@@ -698,11 +675,11 @@ export default function App() {
           enemy={pokemonBattleEnemy}
           playerHp={playerStats.hp}
           playerMaxHp={playerStats.maxHp}
-          playerLevel={playerStats.floor * 4}
+            playerLevel={getStageDifficulty(playerStats.floor, difficulty)}
           characterConfig={characterConfig}
           availableCards={availableCards}
           onPlayerTakeDamage={(baseDmg) => {
-            const actualDmg = Math.max(1, baseDmg - playerStats.armor);
+            const actualDmg = baseDmg === 0 ? 0 : Math.max(1, baseDmg - playerStats.armor);
             setLastDamageTime(Date.now());
             setPlayerStats((prev) => {
               const nextHp = Math.max(0, prev.hp - actualDmg);
@@ -714,6 +691,9 @@ export default function App() {
             });
           }}
           playerArmor={playerStats.armor}
+          onEnemyUpdated={(updated) => setCurrentRoom((room) => ({
+            ...room, enemies: room.enemies.map((enemy) => enemy.id === updated.id ? updated : enemy),
+          }))}
           onEnemyDefeated={(defeatedId) => {
             setPokemonBattleEnemy(null);
             setPlayerPos(prev => ({ x: prev.x + 2, z: prev.z + 2 }));
@@ -734,8 +714,8 @@ export default function App() {
                 ...prev,
                 score: newScore,
                 relicShards: prev.relicShards + (pokemonBattleEnemy.isBoss ? 1 : 0),
-                armor: prev.armor + 1,
-                damageBonus: prev.damageBonus + 1,
+                armor: Math.min(3, prev.armor + 1),
+                damageBonus: Math.min(3, prev.damageBonus + 1),
               };
             });
           }}
@@ -825,7 +805,7 @@ export default function App() {
               FRACTION TOWER
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 mt-1.5">
-              Ascend 6 Chambers · Answer Block Reactions to Save Health · Slay Bosses · Reforge Wholes
+              Ascend 21 Floors · Solve Fractions · Slay Bosses · Team Up
             </p>
 
             {/* Quick Action Buttons Row: Small Button for Customization & Codex */}
@@ -914,6 +894,8 @@ export default function App() {
             </button>
           </div>
 
+          <button onClick={() => setShowMultiplayer(true)} className="my-3 px-6 py-3 bg-cyan-950 border-2 border-cyan-400 text-cyan-200 font-pixel text-xs hover:bg-cyan-800">MULTIPLAYER · CREATE / JOIN LOBBY</button>
+
           {/* Bottom Bar: High score & Instructions */}
           <div className="w-full max-w-xl flex items-center justify-between gap-4 text-xs text-slate-400 font-mono border-t-2 border-slate-800 pt-3 pb-1 flex-wrap sm:flex-nowrap">
             <span>High Score: <strong className="text-cyan-300">{highScore}</strong> PTS</span>
@@ -967,7 +949,7 @@ export default function App() {
               FRACTION TOWER CONQUERED!
             </h2>
             <p className="font-retro text-xs text-slate-300 mb-4">
-              You climbed all 6 floors, shattered the trials, and reforged the Great Relic of Wholes!
+              You reached floor 21, shattered the trials, and reforged the Great Relic of Wholes!
             </p>
 
             <div className="bg-slate-900/80 rounded-xl p-4 border border-slate-800 text-xs font-mono space-y-2 mb-6">
@@ -981,7 +963,7 @@ export default function App() {
               </div>
               <div className="flex justify-between">
                 <span>Relic Shards:</span>
-                <span className="text-amber-400 font-bold">6 / 6 (COMPLETE)</span>
+                <span className="text-amber-400 font-bold">TOWER RESTORED</span>
               </div>
               <div className="flex justify-between">
                 <span>Best Streak:</span>
@@ -1006,6 +988,10 @@ export default function App() {
           </div>
         </div>
       )}
+      {showMultiplayer && <Multiplayer characterConfig={characterConfig} onBack={() => {
+        setShowMultiplayer(false);
+        const url = new URL(window.location.href); url.searchParams.delete('lobby'); window.history.replaceState({}, '', url);
+      }} />}
     </div>
   );
 }

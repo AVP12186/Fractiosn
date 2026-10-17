@@ -188,6 +188,7 @@ input[type=range] { width: 100%; accent-color: #ee9b61; margin: 17px 0 8px; curs
 .wave-indicator b { color: #f4bb7b; font-size: 15px; margin-left: 5px; }
 .wave-indicator > i { height: 15px; width: 1px; background: #a7b68844; }
 .wave-indicator > span:last-child { font-size: 7px; color: #9fac8b; }
+.wave-icon { width: 28px; height: 28px; margin: -5px -4px -5px -7px; }
 .game-top-right { display: flex; align-items: center; gap: 20px; font: 12px 'IBM Plex Mono', monospace; color: #bdc8a3; pointer-events: auto; }
 .game-bottom { position: absolute; bottom: 0; left: 0; right: 0; padding: 24px 32px; display: flex; justify-content: space-between; align-items: flex-end; background: linear-gradient(transparent, #0b140eee); pointer-events: none; gap: 15px; }
 .player-status { display: flex; align-items: center; gap: 10px; background: #141f16c2; padding: 8px 16px 8px 4px; border: 1px solid #9cab7629; }

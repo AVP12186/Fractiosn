@@ -1,14 +1,16 @@
 import { ClassId, GameSettings, SurvivorClass, getClass } from './classes';
-import { drawActor, OBSTACLES, terrain, uiIcon, WORLD } from './art';
+import { drawActor, uiIcon, WORLD } from './art';
+import { drawLandscape, obstaclesNear } from './landscape';
+import { CampaignSave, Equipment, emptyEquipment, Gear, LEVEL_COUNT, LEVEL_HEIGHT, levelCaches, levelInfo, RARITY_COLORS, rollGear, SEARCH_SECONDS } from './campaign';
 import { audio } from './audio';
 
 type Vec = { x: number; y: number };
-type Zombie = Vec & { id: number; hp: number; maxHp: number; kind: 'zombie' | 'runner' | 'brute'; speed: number; angle: number; hit: number; attack: number };
-type Bullet = Vec & { vx: number; vy: number; life: number; damage: number; friendly: boolean };
+type Zombie = Vec & { id: number; hp: number; maxHp: number; kind: 'zombie' | 'runner' | 'brute'; speed: number; angle: number; hit: number; attack: number; boss?: boolean };
+type Bullet = Vec & { vx: number; vy: number; life: number; damage: number; hits: Set<number>; pierce: boolean; splash: boolean };
 type Particle = Vec & { vx: number; vy: number; life: number; max: number; color: string; size: number };
-type Pickup = Vec & { kind: 'cross' | 'ammo'; time: number };
-export type Snapshot = { health: number; maxHealth: number; ammo: number; magazine: number; kills: number; wave: number; score: number; time: number; reloading: number; ability: number; active: number; remaining: number; nextWave: number; dash: number };
-type Callbacks = { onUpdate: (state: Snapshot) => void; onPause: (toggle?: boolean) => void; onDeath: (state: Snapshot) => void };
+type Pickup = Vec & { kind: 'cross' | 'ammo' | 'scrap'; time: number };
+export type Snapshot = { health: number; maxHealth: number; ammo: number; magazine: number; kills: number; score: number; time: number; reloading: number; ability: number; active: number; dash: number; level: number; step: number; progress: number; objective: string; distance: number; prompt: string; searching: number; medkits: number; scrap: number; equipment: Equipment; notice: string; noticeColor: string; bossHealth: number; bossMaxHealth: number; completed: boolean };
+type Callbacks = { onUpdate: (state: Snapshot) => void; onPause: (toggle?: boolean) => void; onDeath: (state: Snapshot) => void; onScene?: (completed: number) => void; onCheckpoint?: (save: CampaignSave) => void; onVictory?: (state: Snapshot) => void };
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 const distance = (a: Vec, b: Vec) => Math.hypot(a.x - b.x, a.y - b.y);
 
@@ -18,8 +20,8 @@ export class ShooterEngine {
   private keys = new Set<string>();
   private pointer = { x: 0, y: 0, down: false, touch: false };
   private movement = { x: 0, y: 0 };
-  private player = { x: 930, y: 650, angle: -.6, health: 100, hurt: 0, flash: 0 };
-  private camera = { x: 930, y: 650 };
+  private player = { x: 1280, y: WORLD.height - 350, angle: -Math.PI / 2, health: 100, hurt: 0, flash: 0 };
+  private camera = { x: 1280, y: WORLD.height - 350 };
   private zombies: Zombie[] = [];
   private bullets: Bullet[] = [];
   private particles: Particle[] = [];
@@ -33,10 +35,23 @@ export class ShooterEngine {
   private activeAbility = 0;
   private dashCooldown = 0;
   private dashTime = 0;
-  private wave = 1;
-  private spawnLeft = 10;
-  private spawnTimer = .8;
-  private nextWave = 0;
+  private level = 0;
+  private step = 0;
+  private spawnTimer = 4;
+  private locked = false;
+  private won = false;
+  private pendingAdvance = false;
+  private searching = false;
+  private searchTime = 0;
+  private encountered = new Set<number>();
+  private opened = new Set<string>();
+  private equipment = emptyEquipment();
+  private medkits = 3;
+  private scrap = 0;
+  private notice = '';
+  private noticeColor = '#c1d3a3';
+  private noticeTime = 0;
+  private bossDefeated = false;
   private kills = 0;
   private score = 0;
   private elapsed = 0;
@@ -54,8 +69,14 @@ export class ShooterEngine {
   private resizeObserver: ResizeObserver;
   private removers: (() => void)[] = [];
 
-  constructor(private canvas: HTMLCanvasElement, id: ClassId, private settings: GameSettings, private callbacks: Callbacks) {
+  constructor(private canvas: HTMLCanvasElement, id: ClassId, private settings: GameSettings, private callbacks: Callbacks, save?: CampaignSave) {
     this.survivor = getClass(id); this.ammo = this.survivor.magazine; this.player.health = this.survivor.health;
+    if (save) {
+      this.level = save.level; this.step = save.step; this.equipment = structuredClone(save.equipment); this.medkits = save.medkits; this.scrap = save.scrap; this.opened = new Set(save.opened); this.score = save.score; this.kills = save.kills; this.elapsed = save.elapsed;
+      const info = levelInfo(this.level), pos = this.step ? info.objectives[this.step - 1] : info.spawn;
+      this.player.x = pos.x; this.player.y = pos.y + (this.step ? 200 : 0); this.bossDefeated = this.step === 3;
+    }
+    this.player.health = this.maxHealth(); this.camera = { x: this.player.x, y: this.player.y };
     this.ctx = canvas.getContext('2d')!;
     this.resizeObserver = new ResizeObserver(() => this.resize()); this.resizeObserver.observe(canvas); this.resize();
     this.pointer.x = this.width / 2 + 120; this.pointer.y = this.height / 2 - 120;
@@ -65,9 +86,11 @@ export class ShooterEngine {
     this.listen(window, 'blur', () => { this.resetInput(); if (!this.paused && !this.dead) this.callbacks.onPause(); });
     this.listen(document, 'visibilitychange', () => { if (document.hidden && !this.paused && !this.dead) { this.resetInput(); this.callbacks.onPause(); } });
     this.listen(canvas, 'pointermove', e => this.movePointer(e as PointerEvent));
-    this.listen(canvas, 'pointerdown', e => { this.movePointer(e as PointerEvent); this.pointer.down = true; this.pointer.touch = (e as PointerEvent).pointerType === 'touch'; });
+    this.listen(canvas, 'pointerdown', e => { this.movePointer(e as PointerEvent); if (!this.inactive()) this.pointer.down = true; this.pointer.touch = (e as PointerEvent).pointerType === 'touch'; });
     this.listen(canvas, 'contextmenu', e => e.preventDefault());
-    audio.setCombat(true); audio.play('wave'); this.callbacks.onUpdate(this.snapshot());
+    audio.setJourney(this.level); audio.setCombat(true);
+    if (!save && callbacks.onScene) { this.locked = true; callbacks.onScene(0); audio.setCombat(false); }
+    this.callbacks.onUpdate(this.snapshot());
     this.raf = requestAnimationFrame(t => this.loop(t));
   }
 
@@ -82,36 +105,40 @@ export class ShooterEngine {
   private movePointer(e: PointerEvent) { const b = this.canvas.getBoundingClientRect(); this.pointer.x = e.clientX - b.left; this.pointer.y = e.clientY - b.top; }
   private keydown(e: KeyboardEvent) {
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) e.preventDefault();
-    if (e.code === 'Escape' && !e.repeat && !this.dead) { this.callbacks.onPause(true); return; }
-    if (this.paused || this.dead) return;
+    if (e.code === 'Escape' && !e.repeat && !this.dead && !this.locked && !this.won) { this.callbacks.onPause(true); return; }
+    if (this.inactive()) return;
     this.keys.add(e.code);
     if (e.code === 'KeyR') this.reload();
     if ((e.code === 'KeyQ' || e.code === 'KeyE') && !e.repeat) this.ability();
     if (e.code === 'Space' && !e.repeat) this.dash();
+    if (e.code === 'KeyF' && !e.repeat) this.interact();
+    if (e.code === 'KeyH' && !e.repeat) this.heal();
   }
-  setPaused(value: boolean) { this.paused = value; this.resetInput(); audio.setCombat(!value); }
+  private inactive() { return this.paused || this.dead || this.locked || this.won; }
+  setPaused(value: boolean) { this.paused = value; this.resetInput(); audio.setCombat(!value && !this.locked); }
   configure(settings: GameSettings) { this.settings = settings; }
-  setMove(x: number, y: number) { this.movement = { x, y }; }
-  setFiring(value: boolean) { this.pointer.down = value; this.pointer.touch = true; }
+  setMove(x: number, y: number) { if (!this.inactive()) this.movement = { x, y }; }
+  setFiring(value: boolean) { this.pointer.down = value && !this.inactive(); this.pointer.touch = true; }
   private resetInput() { this.keys.clear(); this.pointer.down = false; this.movement = { x: 0, y: 0 }; }
   snapshot(): Snapshot {
-    return { health: Math.ceil(this.player.health), maxHealth: this.survivor.health, ammo: this.ammo, magazine: this.survivor.magazine, kills: this.kills, wave: this.wave, score: this.score, time: this.elapsed, reloading: this.reloadTime, ability: this.abilityCooldown, active: this.activeAbility, remaining: this.zombies.length + this.spawnLeft, nextWave: this.nextWave, dash: this.dashCooldown };
+    const info = levelInfo(this.level), boss = this.zombies.find(z => z.boss && z.hp > 0);
+    return { health: Math.ceil(this.player.health), maxHealth: this.maxHealth(), ammo: this.ammo, magazine: this.survivor.magazine, kills: this.kills, score: this.score, time: this.elapsed, reloading: this.reloadTime, ability: this.abilityCooldown, active: this.activeAbility, dash: this.dashCooldown, level: this.level, step: this.step, progress: clamp((info.bottom - this.player.y) / LEVEL_HEIGHT, 0, 1), objective: this.target().title, distance: Math.round(distance(this.target(), this.player) / 100), prompt: this.nearbyCache() ? 'Search supply case' : distance(this.target(), this.player) < 145 ? this.searching ? 'Defend the receiver' : this.step < 3 ? 'Activate receiver' : 'Continue north' : '', searching: this.searching ? this.searchTime / SEARCH_SECONDS : 0, medkits: this.medkits, scrap: this.scrap, equipment: { ...this.equipment }, notice: this.notice, noticeColor: this.noticeColor, bossHealth: Math.ceil(boss?.hp || 0), bossMaxHealth: boss?.maxHp || 0, completed: this.won };
   }
   reload() {
-    if (this.paused || this.dead || this.reloadTime > 0 || this.ammo === this.survivor.magazine) return;
+    if (this.inactive() || this.reloadTime > 0 || this.ammo === this.survivor.magazine) return;
     this.reloadTime = this.survivor.reload; audio.play('reload');
   }
   dash() {
-    if (this.paused || this.dead || this.dashCooldown > 0) return;
+    if (this.inactive() || this.dashCooldown > 0) return;
     this.dashTime = .18; this.dashCooldown = 2.2;
     this.burst(this.player.x, this.player.y, '#9aab88', 8);
   }
   ability() {
-    if (this.paused || this.dead || this.abilityCooldown > 0) return;
+    if (this.inactive() || this.abilityCooldown > 0) return;
     this.abilityCooldown = this.survivor.cooldown; audio.play('ability');
     if (this.survivor.id === 'assault') { this.activeAbility = 6; this.reloadTime = 0; }
     if (this.survivor.id === 'medic') {
-      this.player.health = Math.min(this.survivor.health, this.player.health + 55); this.activeAbility = 1;
+      this.player.health = Math.min(this.maxHealth(), this.player.health + 55); this.activeAbility = 1;
       for (const z of this.zombies) if (distance(z, this.player) < 190) {
         const a = Math.atan2(z.y - this.player.y, z.x - this.player.x); this.move(z, Math.cos(a) * 110, Math.sin(a) * 110, 20); z.hit = .3;
       }
@@ -119,35 +146,94 @@ export class ShooterEngine {
     }
     if (this.survivor.id === 'engineer') { this.activeAbility = 12; this.turrets.push({ x: this.player.x, y: this.player.y, time: 12, shot: .1, angle: 0 }); }
     if (this.survivor.id === 'recon') { this.activeAbility = 5; this.burst(this.player.x, this.player.y, '#97c7c0', 30); }
+    if (this.survivor.id === 'vanguard') this.activeAbility = 5;
+    if (this.survivor.id === 'gunslinger') { this.activeAbility = 5; for (let i = 0; i < 6; i++) this.shoot(this.player.angle + (i - 2.5) * .16); }
+    if (this.survivor.id === 'pyro') { this.activeAbility = 7; for (const z of this.zombies) if (distance(z, this.player) < 280) this.damage(z, 150 * this.damageBonus()); }
+    if (this.survivor.id === 'ranger') this.activeAbility = 7;
+    if (this.survivor.id === 'scavenger') { this.activeAbility = 8; this.player.health = Math.min(this.maxHealth(), this.player.health + 30); for (const p of this.pickups) if (distance(p, this.player) < 850) { p.x = this.player.x; p.y = this.player.y; } }
+    if (this.survivor.id === 'cryo') this.activeAbility = 6;
+    this.burst(this.player.x, this.player.y, this.survivor.color, 22);
     this.callbacks.onUpdate(this.snapshot());
   }
   private blocked(x: number, y: number, radius: number) {
-    return OBSTACLES.some(o => x + radius > o.x && x - radius < o.x + o.w && y + radius > o.y && y - radius < o.y + o.h);
+    return obstaclesNear(y).some(o => x + radius > o.x && x - radius < o.x + o.w && y + radius > o.y && y - radius < o.y + o.h);
   }
   private move(entity: Vec, dx: number, dy: number, radius: number) {
     const x = clamp(entity.x + dx, radius + 20, WORLD.width - radius - 20);
-    const y = clamp(entity.y + dy, radius + 20, WORLD.height - radius - 20);
+    const info = levelInfo(this.level);
+    const y = clamp(entity.y + dy, info.top + (this.step < 3 ? 680 : 100) + radius, info.bottom - radius - 20);
     if (!this.blocked(x, entity.y, radius)) entity.x = x;
     if (!this.blocked(entity.x, y, radius)) entity.y = y;
   }
-  private spawn() {
+  private maxHealth() { return this.survivor.health + (this.equipment.vest?.power || 0); }
+  private damageBonus() { return 1 + (this.equipment.weapon?.power || 0) / 100; }
+  private target() { const info = levelInfo(this.level); return this.step < 3 ? info.objectives[this.step] : { ...info.exit, title: this.level === 99 ? 'Transmit the counter-signal' : 'Travel north to the next location' }; }
+  private nearbyCache() { return levelCaches(this.level).find(c => !this.opened.has(c.id) && distance(c, this.player) < 105); }
+  createSave(): CampaignSave { return { version: 2, classId: this.survivor.id, level: this.level, step: this.step, equipment: structuredClone(this.equipment), medkits: this.medkits, scrap: this.scrap, opened: [...this.opened], score: this.score, kills: this.kills, elapsed: this.elapsed }; }
+  private checkpoint() { this.callbacks.onCheckpoint?.(this.createSave()); }
+  private inform(text: string, color = '#bbd4a0') { this.notice = text; this.noticeColor = color; this.noticeTime = 5; this.callbacks.onUpdate(this.snapshot()); }
+  completeCinematic() {
+    if (!this.locked) return;
+    this.locked = false; this.resetInput();
+    if (this.pendingAdvance) {
+      this.pendingAdvance = false;
+      if (this.level === LEVEL_COUNT - 1) { this.won = true; audio.setCombat(false); this.callbacks.onVictory?.(this.snapshot()); return; }
+      this.level++; this.step = 0; this.opened.clear(); this.encountered.clear(); this.bossDefeated = false;
+      const pos = levelInfo(this.level).spawn; this.player.x = pos.x; this.player.y = pos.y; this.camera = { ...pos };
+      this.zombies = []; this.bullets = []; this.pickups = []; this.stains = []; this.turrets = [];
+      this.player.health = this.maxHealth(); this.ammo = this.survivor.magazine; this.reloadTime = 0; this.spawnTimer = 4; this.abilityCooldown = 0; this.activeAbility = 0;
+      audio.setJourney(this.level);
+    }
+    this.checkpoint(); this.player.hurt = 2; audio.setCombat(!this.paused); this.callbacks.onUpdate(this.snapshot());
+  }
+  heal() {
+    if (this.inactive() || this.player.health >= this.maxHealth()) return;
+    if (this.medkits > 0) this.medkits--; else if (this.scrap >= 3) this.scrap -= 3; else { this.inform('No medkits. Search cases or collect 3 scrap.'); return; }
+    this.player.health = Math.min(this.maxHealth(), this.player.health + 65); audio.play('pickup'); this.inform('FIELD MEDKIT · +65 HEALTH');
+  }
+  interact() {
+    if (this.inactive() || this.searching) return;
+    const cache = this.nearbyCache();
+    if (cache) {
+      this.opened.add(cache.id); this.equip(rollGear(this.level, this.level * 31 + Number(cache.id.split(':').pop()) + 1, cache.elite));
+      this.medkits = Math.min(9, this.medkits + 1); this.ammo = this.survivor.magazine; this.reloadTime = 0; audio.play('pickup'); return;
+    }
+    if (distance(this.target(), this.player) > 145) return;
+    if (this.step < 3) {
+      if (this.step === 2 && levelInfo(this.level).boss && !this.bossDefeated) { this.inform('Defeat the relay guardian before accessing this receiver.', '#e79f72'); return; }
+      this.searching = true; this.searchTime = 0; this.inform('UPLINK STARTED · Stay close and defend for 18 seconds.');
+    } else {
+      this.score += 1000 + this.level * 100; this.locked = true; this.pendingAdvance = true; this.resetInput(); audio.setCombat(false); this.callbacks.onScene?.(this.level + 1);
+      if (!this.callbacks.onScene) this.completeCinematic();
+    }
+  }
+  private equip(gear: Gear) {
+    const old = this.equipment[gear.slot];
+    if (!old || gear.power > old.power) { this.equipment = { ...this.equipment, [gear.slot]: gear }; if (gear.slot === 'vest') this.player.health = Math.min(this.maxHealth(), this.player.health + gear.power - (old?.power || 0)); this.inform(`${gear.rarity.toUpperCase()} · ${gear.name} equipped`, RARITY_COLORS[gear.rarity]); }
+    else { this.scrap = Math.min(999, this.scrap + (gear.rarity === 'legendary' ? 5 : 1)); this.inform(`${gear.name} salvaged · +SCRAP`, RARITY_COLORS[gear.rarity]); }
+    this.score += 75;
+  }
+  private damage(z: Zombie, amount: number) { if (z.hp <= 0) return; z.hp -= amount; z.hit = .15; if (z.hp <= 0) this.kill(z); }
+  private spawn(boss = false, near: Vec = this.player) {
     let x = 0, y = 0;
     for (let i = 0; i < 60; i++) {
       const a = Math.random() * Math.PI * 2, d = 470 + Math.random() * 230;
-      x = clamp(this.player.x + Math.cos(a) * d, 35, WORLD.width - 35); y = clamp(this.player.y + Math.sin(a) * d, 35, WORLD.height - 35);
+      const info = levelInfo(this.level);
+      x = clamp(near.x + Math.cos(a) * d, 35, WORLD.width - 35); y = clamp(near.y + Math.sin(a) * d, info.top + 740, info.bottom - 35);
       if (!this.blocked(x, y, 30) && distance({ x, y }, this.player) > 320) break;
     }
-    if (this.blocked(x, y, 30)) return;
+    if (this.blocked(x, y, 30) || distance({ x, y }, this.player) < 220) return;
     const roll = Math.random();
-    const kind = this.wave > 2 && roll > .85 ? 'brute' : this.wave > 1 && roll > .59 ? 'runner' : 'zombie';
-    const hp = (kind === 'brute' ? 190 : kind === 'runner' ? 44 : 64) + this.wave * 7;
-    this.zombies.push({ id: this.id++, x, y, hp, maxHp: hp, kind, speed: (kind === 'runner' ? 150 : kind === 'brute' ? 63 : 78) + this.wave * 3, angle: 0, hit: 0, attack: 0 }); this.spawnLeft--;
+    const kind = boss || (this.level >= 3 && roll > .85) ? 'brute' : this.level >= 1 && roll > .59 ? 'runner' : 'zombie';
+    const hp = boss ? 850 + this.level * 13 : (kind === 'brute' ? 190 : kind === 'runner' ? 44 : 64) * (1 + this.level * .025);
+    this.zombies.push({ id: this.id++, x, y, hp, maxHp: hp, kind, boss, speed: boss ? 104 : (kind === 'runner' ? 150 : kind === 'brute' ? 63 : 78) + Math.min(32, this.level * .35), angle: 0, hit: 0, attack: 0 });
   }
   private shoot(angle: number, from: Vec = this.player, turret = false) {
     const shotgun = this.survivor.id === 'engineer' && !turret;
     for (let i = 0; i < (shotgun ? 6 : 1); i++) {
       const a = angle + (Math.random() - .5) * (shotgun ? .4 : turret ? .035 : .055);
-      this.bullets.push({ x: from.x + Math.cos(a) * 31, y: from.y + Math.sin(a) * 31, vx: Math.cos(a) * 960, vy: Math.sin(a) * 960, life: .78, damage: turret ? 20 : this.survivor.damage, friendly: true });
+      const powered = this.activeAbility > 0, critical = Math.random() * 100 < (this.equipment.charm?.power || 0);
+      this.bullets.push({ x: from.x + Math.cos(a) * 31, y: from.y + Math.sin(a) * 31, vx: Math.cos(a) * 1100, vy: Math.sin(a) * 1100, life: 1, damage: (turret ? 20 : this.survivor.damage) * this.damageBonus() * (critical || (!turret && powered && ['gunslinger', 'ranger'].includes(this.survivor.id)) ? 2 : 1), hits: new Set(), pierce: !turret && powered && ['gunslinger', 'ranger'].includes(this.survivor.id), splash: !turret && powered && this.survivor.id === 'pyro' });
     }
     this.burst(from.x + Math.cos(angle) * 34, from.y + Math.sin(angle) * 34, '#f7c977', 4);
     if (!turret) { this.player.flash = .06; this.shake = shotgun ? 5 : 2.2; }
@@ -160,17 +246,21 @@ export class ShooterEngine {
     this.kills++; this.score += z.kind === 'brute' ? 250 : z.kind === 'runner' ? 150 : 100;
     this.burst(z.x, z.y, '#9a623b', 14); this.stains.push({ x: z.x, y: z.y, size: 10 + Math.random() * 14 });
     if (this.stains.length > 200) this.stains.shift();
-    if (this.kills % 5 === 0 || Math.random() < .11) this.pickups.push({ x: z.x, y: z.y, kind: this.kills % 5 === 0 ? 'cross' : 'ammo', time: 22 });
+    if (z.boss) { this.bossDefeated = true; this.equip(rollGear(this.level, this.level * 31 + 400, true)); this.inform('GUARDIAN DOWN · Legendary equipment recovered', '#f2b66b'); }
+    if (this.kills % 5 === 0 || Math.random() < .25) this.pickups.push({ x: z.x, y: z.y, kind: this.kills % 5 === 0 ? 'cross' : this.kills % 2 ? 'scrap' : 'ammo', time: 30 });
   }
   private update(dt: number) {
+    if (this.inactive()) return;
     this.elapsed += dt; this.shotTime -= dt; this.player.hurt = Math.max(0, this.player.hurt - dt); this.player.flash -= dt;
+    this.noticeTime -= dt; if (this.noticeTime <= 0) this.notice = '';
     this.abilityCooldown = Math.max(0, this.abilityCooldown - dt); this.activeAbility = Math.max(0, this.activeAbility - dt); this.dashCooldown = Math.max(0, this.dashCooldown - dt); this.dashTime = Math.max(0, this.dashTime - dt); this.shake = Math.max(0, this.shake - dt * 18);
     if (this.reloadTime > 0) { this.reloadTime -= dt; if (this.reloadTime <= 0) { this.ammo = this.survivor.magazine; this.reloadTime = 0; } }
     let dx = (this.keys.has('KeyD') || this.keys.has('ArrowRight') ? 1 : 0) - (this.keys.has('KeyA') || this.keys.has('ArrowLeft') ? 1 : 0) + this.movement.x;
     let dy = (this.keys.has('KeyS') || this.keys.has('ArrowDown') ? 1 : 0) - (this.keys.has('KeyW') || this.keys.has('ArrowUp') ? 1 : 0) + this.movement.y;
     const len = Math.hypot(dx, dy); if (len > 1) { dx /= len; dy /= len; }
     const ghost = this.survivor.id === 'recon' && this.activeAbility > 0;
-    const speed = this.survivor.speed * (this.dashTime > 0 ? 3.7 : ghost ? 1.4 : 1);
+    const shield = this.survivor.id === 'vanguard' && this.activeAbility > 0;
+    const speed = this.survivor.speed * (1 + (this.equipment.boots?.power || 0) / 100) * (this.dashTime > 0 ? 3.7 : ghost || (this.survivor.id === 'scavenger' && this.activeAbility > 0) ? 1.45 : 1);
     if (this.dashTime > 0 && len < .1) { dx = Math.cos(this.player.angle); dy = Math.sin(this.player.angle); }
     this.move(this.player, dx * speed * dt, dy * speed * dt, 18);
     let aimX = (this.pointer.x - this.width / 2) / this.zoom + this.camera.x;
@@ -182,23 +272,28 @@ export class ShooterEngine {
       if (this.ammo > 0 || overdrive) { this.shoot(this.player.angle); if (!overdrive) this.ammo--; this.shotTime = this.survivor.fireRate / (overdrive ? 2 : 1); }
       else this.reload();
     }
-    if (this.spawnLeft > 0) { this.spawnTimer -= dt; if (this.spawnTimer <= 0) { this.spawn(); this.spawnTimer = Math.max(.22, .72 - this.wave * .04); } }
-    if (this.spawnLeft === 0 && this.zombies.length === 0) {
-      if (this.nextWave === 0) { this.nextWave = 6; this.player.health = Math.min(this.survivor.health, this.player.health + 15); this.score += this.wave * 500; }
-      this.nextWave -= dt;
-      if (this.nextWave <= 0) { this.wave++; this.spawnLeft = 7 + this.wave * 4; this.spawnTimer = .3; this.nextWave = 0; this.ammo = this.survivor.magazine; this.reloadTime = 0; audio.play('wave'); }
+    this.spawnTimer -= dt;
+    if (this.spawnTimer <= 0 && this.zombies.length < Math.min(22, 10 + Math.floor(this.level / 8))) { this.spawn(); this.spawnTimer = this.searching ? 2 : 3.4; }
+    const info = levelInfo(this.level), target = this.target();
+    if (this.step < 3 && !this.encountered.has(this.step) && distance(target, this.player) < 800) { this.encountered.add(this.step); for (let i = 0; i < 3 + Math.floor(this.level / 20); i++) this.spawn(false, target); }
+    if (info.boss && this.step === 2 && !this.bossDefeated && !this.zombies.some(z => z.boss) && distance(target, this.player) < 850) this.spawn(true, target);
+    if (this.searching) {
+      if (distance(target, this.player) > 160) { this.searching = false; this.searchTime = 0; this.inform('UPLINK LOST · Stay within the receiver ring.'); }
+      else { this.searchTime += dt; if (this.searchTime >= SEARCH_SECONDS) { this.step++; this.searching = false; this.searchTime = 0; this.score += 350; this.player.health = Math.min(this.maxHealth(), this.player.health + 20); this.player.hurt = 2; this.checkpoint(); this.inform('RECEIVER SECURED · Checkpoint saved · +20 HEALTH'); audio.play('wave'); } }
     }
     for (const z of this.zombies) {
+      if (z.hp <= 0) continue;
       z.hit = Math.max(0, z.hit - dt); z.attack -= dt;
       const d = distance(z, this.player); z.angle = Math.atan2(this.player.y - z.y, this.player.x - z.x);
       let vx = Math.cos(z.angle), vy = Math.sin(z.angle);
       for (const other of this.zombies) { if (z.id === other.id) continue; const dd = distance(z, other); if (dd < 37 && dd > 0) { vx += (z.x - other.x) / dd * .65; vy += (z.y - other.y) / dd * .65; } }
       if (d > 26) {
-        const before = { x: z.x, y: z.y }; this.move(z, vx * z.speed * dt, vy * z.speed * dt, 17);
-        if (distance(before, z) < dt * z.speed * .35) this.move(z, -Math.sin(z.angle) * z.speed * dt, Math.cos(z.angle) * z.speed * dt, 17);
+        const zs = z.speed * (this.survivor.id === 'cryo' && this.activeAbility > 0 ? .12 : z.boss && Math.sin(this.elapsed * .85) > .8 ? 2.2 : 1);
+        const before = { x: z.x, y: z.y }; this.move(z, vx * zs * dt, vy * zs * dt, 17);
+        if (distance(before, z) < dt * zs * .35) this.move(z, -Math.sin(z.angle) * zs * dt, Math.cos(z.angle) * zs * dt, 17);
       }
-      if (d < (z.kind === 'brute' ? 43 : 32) && z.attack <= 0 && this.player.hurt <= 0 && !ghost && this.dashTime <= 0) {
-        this.player.health -= z.kind === 'brute' ? 25 : 12; this.player.hurt = .65; z.attack = .9; this.shake = 9; audio.play('hurt'); this.burst(this.player.x, this.player.y, '#cf6949', 8);
+      if (d < (z.boss ? 62 : z.kind === 'brute' ? 43 : 32) && z.attack <= 0 && this.player.hurt <= 0 && !ghost && !shield && this.dashTime <= 0) {
+        this.player.health -= z.boss ? 32 : z.kind === 'brute' ? 25 : 12; this.player.hurt = .65; z.attack = .9; this.shake = 9; audio.play('hurt'); this.burst(this.player.x, this.player.y, '#cf6949', 8);
         if (this.player.health <= 0) { this.player.health = 0; this.dead = true; this.resetInput(); audio.play('death'); audio.setCombat(false); this.callbacks.onDeath(this.snapshot()); return; }
       }
     }
@@ -208,13 +303,14 @@ export class ShooterEngine {
       for (let i = 0; i < steps && b.life > 0; i++) {
         b.x += b.vx * dt / steps; b.y += b.vy * dt / steps;
         if (b.x < 0 || b.y < 0 || b.x > WORLD.width || b.y > WORLD.height || this.blocked(b.x, b.y, 1)) { b.life = 0; this.burst(b.x, b.y, '#9d9d71', 3); break; }
-        for (const z of this.zombies) if (z.hp > 0 && distance(b, z) < (z.kind === 'brute' ? 26 : 21)) {
-          z.hp -= b.damage; z.hit = .12; b.life = 0; this.burst(b.x, b.y, '#b4844b', 5); audio.play('hit');
-          this.move(z, b.vx * .007, b.vy * .007, 18); if (z.hp <= 0) this.kill(z); break;
+        for (const z of this.zombies) if (z.hp > 0 && !b.hits.has(z.id) && distance(b, z) < (z.boss ? 43 : z.kind === 'brute' ? 26 : 21)) {
+          b.hits.add(z.id); this.damage(z, b.damage); if (!b.pierce) b.life = 0; this.burst(b.x, b.y, b.splash ? '#f6a14e' : '#b4844b', 5); audio.play('hit');
+          if (b.splash) for (const other of this.zombies) if (other.id !== z.id && distance(other, z) < 95) this.damage(other, b.damage * .65);
+          if (!z.boss) this.move(z, b.vx * .005, b.vy * .005, 18); if (!b.pierce) break;
         }
       }
     }
-    this.zombies = this.zombies.filter(z => z.hp > 0); this.bullets = this.bullets.filter(b => b.life > 0);
+    this.zombies = this.zombies.filter(z => z.hp > 0 && (z.boss || distance(z, this.player) < 1450)); this.bullets = this.bullets.filter(b => b.life > 0);
     for (const t of this.turrets) {
       t.time -= dt; t.shot -= dt;
       const target = this.zombies.filter(z => distance(z, t) < 510).sort((a, b) => distance(a, t) - distance(b, t))[0];
@@ -226,14 +322,36 @@ export class ShooterEngine {
     for (const p of this.pickups) {
       p.time -= dt;
       if (distance(p, this.player) < 40) {
-        if (p.kind === 'cross') this.player.health = Math.min(this.survivor.health, this.player.health + 30);
-        else { this.ammo = this.survivor.magazine; this.reloadTime = 0; }
+        if (p.kind === 'cross') this.player.health = Math.min(this.maxHealth(), this.player.health + 30);
+        else if (p.kind === 'ammo') { this.ammo = this.survivor.magazine; this.reloadTime = 0; }
+        else this.scrap = Math.min(999, this.scrap + 1);
         p.time = 0; audio.play('pickup'); this.burst(p.x, p.y, '#bbc18b', 12);
       }
     }
-    this.pickups = this.pickups.filter(p => p.time > 0);
+    this.pickups = this.pickups.filter(p => p.time > 0 && distance(p, this.player) < 1700);
     this.camera.x += (this.player.x - this.camera.x) * Math.min(1, dt * 7); this.camera.y += (this.player.y - this.camera.y) * Math.min(1, dt * 7);
     this.hudTime -= dt; if (this.hudTime <= 0) { this.hudTime = .08; this.callbacks.onUpdate(this.snapshot()); }
+  }
+  private drawJourney(c: CanvasRenderingContext2D) {
+    const info = levelInfo(this.level), target = this.target();
+    c.textAlign = 'center';
+    for (const cache of levelCaches(this.level)) {
+      if (Math.abs(cache.y - this.camera.y) > this.height / this.zoom) continue;
+      c.globalAlpha = this.opened.has(cache.id) ? .3 : 1; c.drawImage(uiIcon('crate'), cache.x - 26, cache.y - 26, 52, 52); c.globalAlpha = 1;
+      if (!this.opened.has(cache.id)) { c.strokeStyle = cache.elite ? '#f2b66b' : '#b7c197'; c.lineWidth = 1; c.strokeRect(cache.x - 30, cache.y - 30, 60, 60); c.fillStyle = c.strokeStyle; c.font = '10px monospace'; c.fillText(cache.elite ? 'RELIC CASE' : 'SUPPLIES', cache.x, cache.y - 43); }
+    }
+    info.objectives.forEach((node, i) => {
+      if (Math.abs(node.y - this.camera.y) > this.height / this.zoom) return;
+      const color = i < this.step ? '#a8c98a' : i === this.step ? '#efb574' : '#687c74';
+      c.fillStyle = '#18322a'; c.fillRect(node.x - 33, node.y - 42, 66, 74); c.strokeStyle = color; c.lineWidth = 2; c.strokeRect(node.x - 30, node.y - 39, 60, 68);
+      c.fillStyle = color; c.fillRect(node.x - 20, node.y - 25, 40, 22); c.fillRect(node.x - 3, node.y - 80, 6, 43); c.fillRect(node.x - 18, node.y - 77, 36, 4);
+      c.strokeStyle = color + '65'; c.beginPath(); c.arc(node.x, node.y, 145, 0, Math.PI * 2); c.stroke();
+      if (i === this.step && this.searching) { c.strokeStyle = color; c.lineWidth = 5; c.beginPath(); c.arc(node.x, node.y, 65, -Math.PI / 2, -Math.PI / 2 + this.searchTime / SEARCH_SECONDS * Math.PI * 2); c.stroke(); }
+      c.fillStyle = color; c.font = '12px monospace'; c.fillText(i < this.step ? 'SIGNAL ONLINE' : `RECEIVER 0${i + 1}`, node.x, node.y - 100);
+    });
+    if (Math.abs(info.exit.y - this.camera.y) < this.height / this.zoom) { c.fillStyle = this.step === 3 ? '#90c797' : '#b47c51'; c.fillRect(850, info.exit.y, 860, 8); c.font = 'bold 22px monospace'; c.fillText(this.step === 3 ? '↑ NORTHBOUND · CONTINUE ↑' : 'RESTORE ALL 3 RECEIVERS', 1280, info.exit.y - 65); }
+    const angle = Math.atan2(target.y - this.player.y, target.x - this.player.x);
+    c.save(); c.translate(this.player.x + Math.cos(angle) * 85, this.player.y + Math.sin(angle) * 85); c.rotate(angle); c.fillStyle = '#f2bc7a'; c.beginPath(); c.moveTo(12, 0); c.lineTo(-6, -7); c.lineTo(-6, 7); c.fill(); c.restore();
   }
   private draw() {
     const c = this.ctx, { width: w, height: h } = this;
@@ -241,7 +359,8 @@ export class ShooterEngine {
     c.save();
     const shake = this.settings.shake ? this.shake : 0;
     c.translate(w / 2 + (Math.random() - .5) * shake, h / 2 + (Math.random() - .5) * shake); c.scale(this.zoom, this.zoom); c.translate(-this.camera.x, -this.camera.y);
-    c.drawImage(terrain(), 0, 0);
+    drawLandscape(c, this.camera.y, h / this.zoom);
+    this.drawJourney(c);
     for (const s of this.stains) { c.fillStyle = '#653f2b88'; c.fillRect(s.x - s.size, s.y - 4, s.size * 2, 8); c.fillRect(s.x - 5, s.y - s.size * .7, 12, s.size * 1.4); }
     for (const p of this.pickups) {
       if (p.time < 4 && Math.floor(p.time * 6) % 2) continue;
@@ -250,7 +369,7 @@ export class ShooterEngine {
     }
     const moving = this.keys.size > 0 || Math.hypot(this.movement.x, this.movement.y) > .1;
     const entities = this.zombies.map(z => ({ y: z.y, draw: () => {
-      drawActor(c, z.kind, z.x, z.y, z.angle, Math.floor(this.elapsed * (z.kind === 'runner' ? 12 : 7)) % 4, z.kind === 'brute' ? 1.3 : 1);
+      drawActor(c, z.kind, z.x, z.y, z.angle, Math.floor(this.elapsed * (this.survivor.id === 'cryo' && this.activeAbility > 0 ? 1 : z.kind === 'runner' ? 12 : 7)) % 4, z.boss ? 2.1 : z.kind === 'brute' ? 1.3 : 1);
       if (z.hit > 0) { c.fillStyle = '#e6b17455'; c.beginPath(); c.arc(z.x, z.y, 21, 0, Math.PI * 2); c.fill(); }
       if (z.hp < z.maxHp) { c.fillStyle = '#152219'; c.fillRect(z.x - 19, z.y - 37, 38, 4); c.fillStyle = '#b56c43'; c.fillRect(z.x - 19, z.y - 37, 38 * z.hp / z.maxHp, 4); }
     } }));
@@ -280,7 +399,7 @@ export class ShooterEngine {
     c.restore();
     const vignette = c.createRadialGradient(w / 2, h / 2, h * .15, w / 2, h / 2, Math.max(w, h) * .68); vignette.addColorStop(0, 'transparent'); vignette.addColorStop(1, '#050e0bba'); c.fillStyle = vignette; c.fillRect(0, 0, w, h);
     if (this.player.hurt > .4) { c.fillStyle = '#bb43251c'; c.fillRect(0, 0, w, h); }
-    if (!this.pointer.touch && !this.paused && !this.dead) {
+    if (!this.pointer.touch && !this.inactive()) {
       const { x, y } = this.pointer; c.strokeStyle = this.reloadTime > 0 ? '#d2ab63' : '#e4e2b9'; c.lineWidth = 1.5;
       c.beginPath(); c.arc(x, y, 7, 0, Math.PI * 2); c.moveTo(x - 13, y); c.lineTo(x - 5, y); c.moveTo(x + 5, y); c.lineTo(x + 13, y); c.moveTo(x, y - 13); c.lineTo(x, y - 5); c.moveTo(x, y + 5); c.lineTo(x, y + 13); c.stroke();
     }

@@ -1,0 +1,110 @@
+.class-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.class-card h3 { font-size: clamp(26px, 2.3vw, 35px); }
+.class-card .portrait-platform { opacity: .85; right: -30px; }
+.class-card .selected-label { font-size: 0; }
+.class-card .card-top > span:first-child > span { font-size: 5px; }
+.class-card .weapon-tag { font-size: 7px; }
+.continue-campaign { display: flex; align-items: center; gap: 10px; background: #a4be8312; border: 1px solid #a4be8355; color: #c7d9b5; font: 10px 'IBM Plex Mono', monospace; padding: 12px 16px; flex-wrap: wrap; max-width: 320px; }
+.continue-campaign small { width: 100%; font-size: 8px; color: #92a481; text-align: left; padding-left: 24px; }
+.continue-campaign:hover { background: #a4be8322; }
+.journey-logo { font: 800 24px/.9 'Barlow Condensed', sans-serif; letter-spacing: 1px; }
+.journey-logo > span { color: #ed9d6a; margin-left: 4px; }
+.journey-logo small { display: block; font: 7px 'IBM Plex Mono', monospace; letter-spacing: 3.7px; margin-top: 8px; color: #a4b393; }
+.game-topbar { position: absolute; inset: 0 0 auto; padding: 22px 30px 30px; display: flex; align-items: center; justify-content: space-between; gap: 20px; pointer-events: none; background: linear-gradient(#0a140fe6, transparent); }
+.journey-location { display: flex; align-items: center; flex-direction: column; gap: 4px; text-shadow: 0 2px 5px #031009; }
+.journey-location small { font: 8px 'IBM Plex Mono', monospace; color: #cbba91; letter-spacing: 2px; }
+.journey-location strong { font: 500 22px 'Barlow Condensed', sans-serif; letter-spacing: .7px; }
+.game-top-actions { pointer-events: auto; display: flex; align-items: center; gap: 12px; }
+.kills { display: flex; align-items: center; gap: 6px; font: 11px 'IBM Plex Mono', monospace; color: #c8c8a3; margin-right: 8px; }
+.route-hud { position: absolute; top: 115px; left: 30px; width: min(320px, calc(100% - 60px)); background: #10221bde; border: 1px solid #c7c39333; padding: 16px; pointer-events: none; box-shadow: 0 8px 40px #00100b22; }
+.route-hud > div:first-child { display: flex; align-items: center; gap: 10px; color: #e0c598; }
+.route-hud > div:first-child > span { font: 600 12px 'Barlow', sans-serif; color: #c6d2bc; }
+.route-hud > div:first-child small { display: block; font: 6px 'IBM Plex Mono', monospace; letter-spacing: 1px; color: #8ea28a; margin-top: 5px; }
+.route-hud > div:first-child > b { font: 10px 'IBM Plex Mono', monospace; margin-left: auto; }
+.route-track { height: 3px; position: relative; background: #82987633; margin: 21px 3px 16px; }
+.route-track > i { display: block; height: 100%; background: #e7b078; transition: width .2s; }
+.route-track > b { position: absolute; height: 7px; width: 7px; top: -2px; border: 1px solid #adad81; background: #28382a; transform: rotate(45deg); }
+.route-track > b.done { background: #c9ce9f; }
+.route-hud p { font-size: 11px; display: flex; align-items: center; gap: 8px; color: #c4cdb3; margin: 0 0 10px; }
+.route-hud p svg { flex-shrink: 0; color: #edb27d; }
+.route-hud p strong { font: 10px 'IBM Plex Mono', monospace; margin-left: auto; color: #e1c19b; }
+.receiver-count { font: 6px 'IBM Plex Mono', monospace; letter-spacing: .5px; color: #8b9a80; }
+.receiver-count > span { color: #ccb996; }
+.uplink-bar { position: relative; height: 26px; margin-top: 12px; background: #bbbc7420; display: grid; place-items: center; }
+.uplink-bar i { position: absolute; inset: 0 auto 0 0; background: #cda45a44; }
+.uplink-bar span { font: 8px 'IBM Plex Mono', monospace; z-index: 1; }
+.boss-hud { position: absolute; top: 105px; left: 50%; transform: translateX(-50%); width: min(330px, 40vw); text-align: center; color: #dba37b; pointer-events: none; }
+.boss-hud strong { font: 10px 'IBM Plex Mono', monospace; letter-spacing: 3px; }
+.boss-hud div { height: 6px; background: #131e15; margin: 10px 0 5px; border: 1px solid #d1956144; }
+.boss-hud i { height: 100%; background: #d08859; display: block; }
+.boss-hud small { font: 8px 'IBM Plex Mono', monospace; }
+.loot-notice { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); padding: 11px 20px; background: #0d201ce8; border: 1px solid currentColor; font: 9px/1.6 'IBM Plex Mono', monospace; text-align: center; max-width: 75%; pointer-events: none; animation: modal-in .2s ease-out; }
+.interact-prompt { position: absolute; bottom: 26%; left: 50%; transform: translateX(-50%); background: #27392ae8; border: 1px solid #d5b980; display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 12px; padding: 13px 18px; box-shadow: 0 8px 40px #0005; color: #ead5af; max-width: 85%; }
+.interact-prompt kbd { color: #f1c18b; border-color: #ddbc76; }
+.interact-prompt:disabled { border-color: #8ca179; color: #bec9a7; }
+.health-panel { background: #102119e6; border: 1px solid #becfa633; padding: 13px 16px; width: 260px; }
+.health-label { display: flex; align-items: center; gap: 7px; color: #d0d6b6; font: 11px 'IBM Plex Mono', monospace; }
+.health-label > svg { color: #a6c78b; }
+.health-label > span:not(.survivor-tag) { font-size: 9px; color: #8f9e7a; }
+.survivor-tag { color: var(--class-color); margin-left: auto; font-size: 10px; }
+.health-track { height: 5px; background: #82966e33; margin-top: 11px; }
+.health-track i { display: block; height: 100%; background: #a7bd7e; transition: width .15s; }
+.health-panel > small { font: 7px 'IBM Plex Mono', monospace; display: block; margin-top: 9px; color: #869b77; }
+.ammo-panel { display: flex; align-items: center; gap: 12px; margin-left: auto; padding: 8px 16px; background: #102119e6; border: 1px solid #becfa633; color: #bdc3a5; }
+.ammo-panel strong { font: 600 36px/.95 'Barlow Condensed', sans-serif; color: #e9d4ad; }
+.ammo-panel span { font: 13px 'Barlow Condensed', sans-serif; padding-left: 4px; }
+.ammo-panel small { display: block; font: 6px 'IBM Plex Mono', monospace; text-transform: uppercase; margin-top: 5px; }
+.ability-panel { display: flex; align-items: center; gap: 13px; background: #293124e8; border: 1px solid #cbb37866; pointer-events: auto; padding: 15px; color: #dbc79b; }
+.ability-panel > span:nth-child(2) { font-size: 11px; text-align: left; text-transform: uppercase; }
+.ability-panel b { display: block; font: 7px 'IBM Plex Mono', monospace; margin-top: 5px; color: #93b481; }
+.ability-panel.active { background: #7b753c99; border-color: #d8ca8a; }
+.journey-save { position: absolute; bottom: 8px; left: 32px; font: 6px 'IBM Plex Mono', monospace; color: #a5b393; pointer-events: none; }
+.touch-heal { display: none; }
+.pause-backdrop { position: absolute; inset: 0; background: #07150de6; backdrop-filter: blur(7px); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 15; overflow-y: auto; }
+.pause-card { max-height: 100%; overflow-y: auto; }
+.route-journal { width: 760px; text-align: left; }
+.route-journal h3 { font-size: 11px; font-weight: 500; color: #b3bfa0; display: flex; gap: 8px; align-items: center; margin-top: 24px; }
+.journal-regions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 24px 0; }
+.journal-regions > span { border: 1px solid #b8c59314; padding: 8px; font-size: 10px; color: #6e806c; }
+.journal-regions b { font: 7px 'IBM Plex Mono', monospace; display: block; margin-bottom: 4px; color: #63775e; }
+.journal-regions .current { border-color: #e5b47d; color: #e9d3ab; background: #dcaa6815; }
+.journal-regions .visited { color: #a1b78e; border-color: #adcb7f44; }
+.gear-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.gear-list > div { border: 1px solid currentColor; padding: 12px; background: #00100922; }
+.gear-list small { display: block; font: 7px 'IBM Plex Mono', monospace; opacity: .65; margin-bottom: 8px; }
+.gear-list strong { display: block; font-size: 12px; font-weight: 500; }
+.gear-list span { display: block; font: 7px/1.8 'IBM Plex Mono', monospace; margin-top: 8px; }
+.route-journal .journal-note { font-size: 10px; }
+.cinematic { position: absolute; inset: 0; z-index: 25; background: #070e0d; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow-y: auto; }
+.cinematic > header { display: flex; align-items: center; justify-content: space-between; width: min(1100px, 100%); padding: 22px 32px; color: #c5ccba; font: 8px 'IBM Plex Mono', monospace; letter-spacing: 1px; flex-shrink: 0; }
+.cinematic > header b { font-weight: 400; color: #87967d; }
+.cinematic > header button { display: flex; align-items: center; gap: 8px; background: transparent; color: #8da186; font: 7px 'IBM Plex Mono', monospace; padding: 8px; }
+.cinema-frame { position: relative; width: min(1100px, 100%); border-block: 1px solid #dcbd7e44; overflow: hidden; flex-shrink: 0; }
+.cinema-frame canvas { width: 100%; max-height: 49dvh; display: block; object-fit: cover; image-rendering: pixelated; }
+.cinema-grain { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, #0002 0px, #0002 1px, transparent 1px, transparent 3px), linear-gradient(#07100d33, transparent 50%, #07100d99); pointer-events: none; }
+.cinema-title { position: absolute; top: 30px; left: 40px; text-shadow: 0 3px 14px #00130c; animation: intro-in 1s ease-out; }
+.cinema-title small { font: 8px 'IBM Plex Mono', monospace; letter-spacing: 2px; color: #d3c294; }
+.cinema-title h2 { font: 600 clamp(30px, 4vw, 58px)/1 'Barlow Condensed', sans-serif; text-transform: uppercase; color: #e5dfc9; margin: 10px 0; letter-spacing: 1px; }
+.cinema-timestamp { position: absolute; bottom: 20px; right: 25px; font: 8px 'IBM Plex Mono', monospace; color: #8fa58a; }
+.cinema-dialogue { width: min(900px, 100%); padding: 28px 40px; flex-shrink: 0; }
+.cinema-dialogue > div { display: flex; align-items: center; gap: 10px; color: #e5b581; font: 9px 'IBM Plex Mono', monospace; letter-spacing: 1px; }
+.cinema-dialogue > div i { height: 1px; flex: 1; background: #aaa77a22; }
+.cinema-dialogue > p { min-height: 65px; font: 400 17px/1.7 'Barlow', sans-serif; color: #c7d0bc; margin: 18px 0 20px; }
+.type-caret { color: #c69a63; animation: pulse 1s infinite; }
+.cinema-dialogue footer { display: flex; justify-content: space-between; align-items: center; }
+.cinema-dialogue footer > span { display: flex; gap: 7px; }
+.cinema-dialogue footer i { height: 3px; width: 17px; background: #81946d44; }
+.cinema-dialogue footer i.active { background: #e5b581; }
+.cinema-dialogue .primary-button { min-height: 43px; font-size: 9px; padding: 12px 18px; }
+@media (max-width: 1100px) { .class-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.class-card .portrait-platform { right: -5px; }.class-card .card-top > span:first-child > span { font-size: 7px; }.class-card .weapon-tag { font-size: 8px; }.class-card h3 { font-size: 34px; }.class-card .selected-label { font-size: 7px; }.boss-hud { left: auto; right: 30px; width: 220px; transform: none; }.route-hud { width: 280px; }.class-card p { font-size: 10px; max-width: 170px; } }
+@media (max-width: 600px) {
+  .class-card .selected-label { font-size: 0; }.class-card .card-top > span:first-child > span { font-size: 5px; }.class-card .portrait-platform { right: -12px; }.class-card .weapon-tag { font-size: 6px; }.class-card h3 { font-size: 27px; }.class-card p { font-size: 8px; max-width: 110px; }
+  .game-topbar { padding: 17px 14px; gap: 10px; }.journey-logo { font-size: 18px; }.journey-logo small { font-size: 5px; letter-spacing: 2px; }.journey-location { align-items: flex-start; margin-right: auto; }.journey-location small { font-size: 6px; letter-spacing: 1px; }.journey-location strong { font-size: 17px; }.game-top-actions { gap: 5px; }.kills { display: none; }.game-top-actions .icon-button { width: 30px; height: 30px; }
+  .route-hud { left: 14px; top: 84px; padding: 12px; width: 250px; }.route-hud > div:first-child > span { font-size: 10px; }.route-hud > div:first-child small { font-size: 5px; }.route-track { margin: 15px 3px 12px; }.route-hud p { font-size: 10px; }.receiver-count { font-size: 5px; }.boss-hud { top: 220px; right: 14px; width: 170px; }.boss-hud strong { font-size: 8px; letter-spacing: 1px; }.loot-notice { top: 235px; width: 90%; max-width: 90%; font-size: 8px; }
+  .journey-game .game-bottom { padding: 14px 12px 20px; gap: 8px; }.health-panel { padding: 9px; width: 160px; flex-shrink: 0; }.health-label { font-size: 10px; gap: 4px; }.health-label > svg { width: 12px; }.survivor-tag { font-size: 8px; }.health-panel > small { font-size: 5px; }.health-track { margin-top: 7px; }.ammo-panel { padding: 6px 9px; gap: 6px; }.ammo-panel > svg, .ammo-panel kbd { display: none; }.ammo-panel strong { font-size: 28px; }.ammo-panel small { font-size: 5px; max-width: 90px; }.ability-panel { padding: 10px; gap: 6px; }.ability-panel > .ability-icon { display: none; }.ability-panel > span:nth-child(2) { font-size: 7px; }.ability-panel kbd { display: none; }.ability-panel b { font-size: 6px; }.journey-save { left: 14px; font-size: 5px; bottom: 5px; }
+  .interact-prompt { font-size: 11px; padding: 12px; bottom: 39%; }.pause-backdrop { padding: 12px; }.route-journal { padding: 26px 18px; }.journal-regions { grid-template-columns: repeat(2, 1fr); gap: 5px; margin: 15px 0; }.journal-regions > span { padding: 6px; font-size: 9px; }.gear-list { grid-template-columns: repeat(2, 1fr); }.gear-list > div { padding: 9px; }.gear-list strong { font-size: 10px; }.route-journal h2 { font-size: 30px; }
+  .cinematic > header { padding: 14px; font-size: 6px; }.cinematic > header button { font-size: 6px; }.cinematic > header b { display: none; }.cinema-title { top: 22px; left: 20px; }.cinema-title small { font-size: 6px; letter-spacing: 1px; }.cinema-title h2 { font-size: 30px; }.cinema-frame canvas { min-height: 240px; max-height: 36dvh; object-position: 60%; }.cinema-dialogue { padding: 22px; }.cinema-dialogue > div { font-size: 8px; }.cinema-dialogue > p { font-size: 15px; min-height: 125px; line-height: 1.7; }.cinema-dialogue .primary-button { font-size: 8px; gap: 8px; padding: 12px; }.cinema-dialogue footer i { width: 10px; }
+}
+@media (pointer: coarse) { .journey-game .touch-controls { bottom: 125px; }.touch-heal { display: flex; position: absolute; bottom: 235px; right: 25px; gap: 8px; align-items: center; background: #183025d9; color: #c3d7ab; border: 1px solid #b1c78c55; padding: 12px; font: 11px 'IBM Plex Mono', monospace; }.journey-game .ability-panel { display: none; }.journey-game .ammo-panel { margin-left: auto; }.receiver-count { display: none; } }
+@media (max-height: 550px) { .cinematic > header { padding: 8px 25px; }.cinema-frame canvas { max-height: 35dvh; }.cinema-dialogue { padding: 12px 35px; }.cinema-dialogue > p { min-height: 40px; margin: 10px 0; font-size: 13px; }.cinema-title { top: 15px; }.cinema-title h2 { font-size: 30px; }.cinematic { justify-content: flex-start; }.route-hud { top: 85px; padding: 10px; }.route-hud > div:first-child small { display: none; }.route-hud .route-track { margin-block: 12px; }.route-hud p { margin-bottom: 4px; }.journey-game .touch-controls { bottom: 100px; }.touch-heal { bottom: 195px; }.journey-game .game-bottom { padding-block: 12px 18px; }.loot-notice { top: 70px; } }
+@media (prefers-reduced-motion: reduce) { .cinema-title, .type-caret, .loot-notice { animation: none; }.route-track > i { transition: none; } }

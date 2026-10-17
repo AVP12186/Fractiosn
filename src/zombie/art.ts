@@ -1,7 +1,8 @@
 import { ClassId, getClass } from './classes';
+import { JOURNEY_WORLD } from './campaign';
 
 const cache = new Map<string, HTMLCanvasElement>();
-export const WORLD = { width: 1920, height: 1280 };
+export const WORLD = JOURNEY_WORLD;
 export const OBSTACLES = [
   { x: 60, y: 65, w: 520, h: 260 }, { x: 1380, y: 55, w: 480, h: 290 },
   { x: 70, y: 1000, w: 430, h: 220 }, { x: 1440, y: 1010, w: 410, h: 210 },
@@ -61,6 +62,12 @@ export function portrait(id: ClassId, frame = 0) {
       r(31, 16, 11, 2, '#8ebaa5'); r(28, 22, 17, 5, '#607c70'); r(28, 25, 8, 3, '#405b51');
       r(33, 31, 26, 3, '#62776d'); r(42, 28, 8, 3, '#263c35'); r(59, 33, 5, 2, '#b8b8a0');
     }
+    if (id === 'vanguard') { r(25, 8, 22, 14, '#747d82'); r(27, 14, 20, 6, '#202f35'); r(29, 15, 15, 2, '#b6d2cf'); r(13, 29, 13, 23, '#7f8b89'); r(15, 32, 8, 15, '#404e4c'); }
+    if (id === 'gunslinger') { r(27, 8, 19, 8, '#9d754e'); r(21, 14, 31, 4, '#bc9662'); r(29, 10, 15, 3, '#694633'); r(29, 25, 15, 5, '#b2694f'); r(47, 36, 14, 4, '#abb2a2'); }
+    if (id === 'pyro') { r(27, 9, 20, 15, '#4e5851'); r(29, 14, 17, 5, '#e7a459'); r(31, 21, 11, 6, '#1c2825'); r(28, 22, 5, 6, '#93957d'); r(41, 22, 5, 6, '#93957d'); r(13, 24, 8, 24, '#bb7647'); }
+    if (id === 'ranger') { r(26, 7, 21, 18, '#547454'); r(30, 12, 15, 9, '#233a30'); r(31, 16, 10, 2, '#c7bb91'); r(23, 24, 7, 20, '#718659'); r(50, 28, 3, 17, '#adb698'); }
+    if (id === 'scavenger') { r(26, 11, 22, 7, '#9d9867'); r(29, 16, 16, 5, '#2c3b35'); r(30, 17, 5, 2, '#d5c77f'); r(39, 17, 5, 2, '#d5c77f'); r(11, 25, 12, 23, '#75613f'); r(13, 28, 8, 5, '#b29c66'); }
+    if (id === 'cryo') { r(26, 8, 22, 15, '#92b6bf'); r(29, 13, 17, 8, '#345b68'); r(30, 15, 13, 2, '#b7e7eb'); r(14, 25, 8, 21, '#74a2ae'); r(16, 28, 4, 12, '#bae3dc'); r(48, 33, 14, 3, '#8ed7e0'); }
   });
 }
 
@@ -88,11 +95,17 @@ export function actor(kind: ClassId | 'zombie' | 'runner' | 'brute', frame = 0) 
       if (kind === 'medic') { r(31, 21, 13, 8, '#b0b69a'); r(35, 21, 3, 8, '#b95d49'); r(32, 24, 10, 3, '#b95d49'); }
       if (kind === 'engineer') { r(30, 20, 15, 10, '#c2a151'); r(31, 21, 11, 3, '#e0bc66'); }
       if (kind === 'recon') { r(29, 19, 17, 14, '#46665d'); r(41, 24, 6, 3, '#9bb8a1'); }
+      if (kind === 'vanguard') { r(27, 19, 21, 14, '#7b8b8b'); r(39, 24, 10, 4, '#254552'); r(17, 19, 10, 23, '#a1b0ae'); }
+      if (kind === 'gunslinger') { r(28, 18, 17, 15, '#9b7853'); r(24, 21, 26, 5, '#bc9867'); }
+      if (kind === 'pyro') { r(29, 20, 18, 13, '#414d45'); r(39, 22, 8, 8, '#e8a15d'); r(15, 23, 8, 16, '#c07c4d'); }
+      if (kind === 'ranger') { r(27, 18, 20, 17, '#658159'); r(40, 23, 8, 6, '#304936'); r(51, 23, 4, 19, '#9fb788'); }
+      if (kind === 'scavenger') { r(28, 20, 18, 13, '#8f8558'); r(40, 24, 8, 4, '#e0cf8b'); r(12, 23, 11, 16, '#8b7150'); }
+      if (kind === 'cryo') { r(28, 20, 20, 13, '#8bb8c4'); r(39, 23, 10, 5, '#367180'); r(15, 25, 7, 12, '#b6e2dc'); }
     }
   });
 }
 
-export function uiIcon(type: 'cross' | 'ammo' | 'shield' | 'skull' | 'bolt') {
+export function uiIcon(type: 'cross' | 'ammo' | 'shield' | 'skull' | 'bolt' | 'crate' | 'scrap') {
   return canvas64(`ui-${type}`, c => {
     const r = (x: number, y: number, w: number, h: number, color: string) => { c.fillStyle = color; c.fillRect(x, y, w, h); };
     r(8, 8, 48, 48, '#17231e'); r(10, 10, 44, 44, '#25332a');
@@ -101,12 +114,14 @@ export function uiIcon(type: 'cross' | 'ammo' | 'shield' | 'skull' | 'bolt') {
     if (type === 'shield') { r(18, 18, 28, 23, '#9ba990'); r(22, 40, 20, 5, '#9ba990'); r(28, 45, 8, 5, '#9ba990'); r(24, 22, 16, 16, '#344638'); }
     if (type === 'skull') { r(18, 17, 28, 25, '#c3c4aa'); r(23, 41, 18, 7, '#b0b39a'); r(22, 26, 7, 8, '#25332a'); r(35, 26, 7, 8, '#25332a'); r(30, 34, 4, 5, '#25332a'); r(27, 43, 3, 7, '#25332a'); r(35, 43, 3, 7, '#25332a'); }
     if (type === 'bolt') { c.fillStyle = '#e3ad62'; c.beginPath(); c.moveTo(33, 15); c.lineTo(20, 34); c.lineTo(30, 34); c.lineTo(26, 49); c.lineTo(45, 27); c.lineTo(34, 27); c.closePath(); c.fill(); }
+    if (type === 'crate') { r(14, 22, 36, 28, '#7d6743'); r(14, 17, 36, 10, '#bba16b'); r(17, 21, 30, 3, '#dfc68f'); r(28, 23, 8, 17, '#ecd097'); r(14, 43, 36, 4, '#4e4935'); }
+    if (type === 'scrap') { r(19, 20, 25, 25, '#879487'); r(24, 25, 15, 15, '#293c33'); r(15, 29, 34, 7, '#aeb69a'); r(28, 15, 7, 34, '#aeb69a'); }
   });
 }
 
 export function terrain() {
   if (cache.has('terrain')) return cache.get('terrain')!;
-  const c = document.createElement('canvas'); c.width = WORLD.width; c.height = WORLD.height;
+  const c = document.createElement('canvas'); c.width = 1920; c.height = 1280;
   const ctx = c.getContext('2d')!; const rand = random(739);
   const r = (x: number, y: number, w: number, h: number, color: string) => { ctx.fillStyle = color; ctx.fillRect(Math.floor(x), Math.floor(y), w, h); };
   r(0, 0, c.width, c.height, '#27332c');

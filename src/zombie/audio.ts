@@ -1,5 +1,9 @@
 import { DEFAULT_SETTINGS, GameSettings } from './classes';
 
+export function musicProfile(level: number) {
+  return { tempo: 80 + level * 7 % 37, transposition: level * 7 % 12, mode: level % 3, stride: level % 5 + 1, instrument: level % 2 ? 'sine' as const : 'triangle' as const };
+}
+
 class ApocalypseAudio {
   private ctx?: AudioContext;
   private master?: GainNode;
@@ -10,6 +14,7 @@ class ApocalypseAudio {
   private step = 0;
   private settings = DEFAULT_SETTINGS;
   private combat = false;
+  private journey = 0;
   private noise?: AudioBuffer;
 
   async unlock() {
@@ -39,6 +44,7 @@ class ApocalypseAudio {
   }
 
   setCombat(value: boolean) { this.combat = value; }
+  setJourney(level: number) { this.journey = level; this.step = 0; if (this.ctx) this.next = this.ctx.currentTime + .08; }
 
   private tone(frequency: number, time: number, duration: number, volume: number, type: OscillatorType, destination: AudioNode, endFrequency?: number) {
     if (!this.ctx) return;
@@ -62,22 +68,23 @@ class ApocalypseAudio {
     if (this.next < this.ctx.currentTime) this.next = this.ctx.currentTime + .03;
     while (this.next < this.ctx.currentTime + .15) {
       const t = this.next, s = this.step % 64, beat = s % 16;
-      const root = [55, 43.654, 65.406, 49][Math.floor(s / 16)];
+      const profile = musicProfile(this.journey);
+      const root = [55, 43.654, 65.406, 49][(Math.floor(s / 16) + Math.floor(this.journey / 12)) % 4] * 2 ** (profile.transposition / 12);
       if (s % 4 === 0) {
         this.tone(root * (beat === 8 ? 2 : 1), t, .29, .4, 'triangle', this.music!);
         this.tone(120, t, .18, .6, 'sine', this.music!, 32);
       }
       if (beat === 4 || beat === 12) this.hiss(t, .13, .24, 1600, this.music!);
       if (s % 2 === 0) this.hiss(t, .035, s % 4 === 0 ? .1 : .055, 8500, this.music!);
-      const notes = [4, 6, 7, 11, 12, 15];
+      const notes = profile.mode === 0 ? [0, 3, 7, 10, 12, 15] : profile.mode === 1 ? [0, 2, 5, 7, 10, 14] : [0, 4, 7, 9, 12, 16];
       if ((this.combat || s % 2 === 0) && this.settings.music) {
-        const semi = notes[Math.floor(s / 2) % notes.length];
-        this.tone(root * 4 * 2 ** (semi / 12), t, .38, .065, 'triangle', this.music!);
+        const semi = notes[(Math.floor(s / 2) * profile.stride + Math.floor(s / 16)) % notes.length];
+        this.tone(root * 4 * 2 ** (semi / 12), t, .28 + this.journey % 4 * .06, this.combat ? .065 : .04, profile.instrument, this.music!);
       }
       if (beat === 0 && this.settings.music) {
         for (const ratio of [1, 1.1892, 1.4983]) this.tone(root * 2 * ratio, t, 2.1, .075, 'sine', this.music!);
       }
-      this.next += 60 / 96 / 4; this.step++;
+      this.next += 60 / profile.tempo / 4; this.step++;
     }
   }
 

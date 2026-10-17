@@ -1,8 +1,14 @@
 import { useRef, useState } from 'react';
 import { Crosshair, Zap } from 'lucide-react';
-import { ShooterEngine } from './engine';
+export interface GameControls {
+  setMove(x: number, y: number): void;
+  setFiring(value: boolean): void;
+  reload(): void;
+  ability(): void;
+  dash(): void;
+}
 
-export function TouchControls({ engine }: { engine: React.RefObject<ShooterEngine | null> }) {
+export function TouchControls({ engine }: { engine: React.RefObject<GameControls | null> }) {
   const stick = useRef<HTMLDivElement>(null), [offset, setOffset] = useState({ x: 0, y: 0 });
   const move = (e: React.PointerEvent) => {
     const box = stick.current!.getBoundingClientRect(); let x = (e.clientX - box.left - box.width / 2) / 37, y = (e.clientY - box.top - box.height / 2) / 37;

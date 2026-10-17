@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, ArrowUpRight, AudioLines, Check, ChevronRight, Crosshair, Heart, Menu, Pause, Play, Radio, RotateCcw, Settings2, Skull, Target, Volume2, VolumeX, X, Zap } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, AudioLines, Check, ChevronRight, Crosshair, Heart, Menu, Pause, Play, Radio, RotateCcw, Settings2, Skull, Target, Users, Volume2, VolumeX, X, Zap } from 'lucide-react';
 import { CLASSES, ClassId, DEFAULT_SETTINGS, GameSettings, getClass } from './classes';
 import { drawActor, portrait, random, terrain, uiIcon } from './art';
 import { audio } from './audio';
 import { Snapshot } from './engine';
 import { JourneyGame as Game } from './JourneyGame';
 import { CampaignSave, levelInfo, parseSave, SAVE_KEY } from './campaign';
+import { inviteCode, PartyLobby } from './PartyLobby';
 import './dead-signal.css';
 import './journey.css';
 
@@ -89,6 +90,7 @@ function SettingsPanel({ settings, onChange }: { settings: GameSettings; onChang
 
 
 export default function DeadSignal() {
+  const [party, setParty] = useState(() => !!inviteCode());
   const [selected, setSelected] = useState<ClassId>('assault'), [panel, setPanel] = useState<Panel>(null), [playing, setPlaying] = useState(false), [settings, setSettings] = useState(loadSettings);
   const [best, setBest] = useState(() => Math.max(0, Number(storage.get('dead-signal-best')) || 0));
   const [audioStarted, setAudioStarted] = useState(false);
@@ -119,7 +121,8 @@ export default function DeadSignal() {
   const updateSettings = (s: GameSettings) => { interact(); setSettings(s); };
   const result = (s: Snapshot) => { if (s.score > best) { setBest(s.score); storage.set('dead-signal-best', String(s.score)); } };
   return <div className="dead-signal">
-    {playing ? <Game selected={selected} settings={settings} resume={resume} onCheckpoint={save} onExit={() => { interact(); setPlaying(false); }} openSettings={() => open('settings')} onResult={result} /> : <div className="menu-shell">
+    {!party && !playing && <button className="coop-entry-banner" onClick={() => { interact(); setParty(true); }}><Users size={16} /><span>PRIVATE CO-OP <b>2–4 SURVIVORS</b></span><strong>PLAY WITH FRIENDS <ArrowUpRight size={16} /></strong></button>}
+    {party ? <PartyLobby selected={selected} initialCode={inviteCode()} onExit={() => { setParty(false); history.replaceState(null, '', window.location.pathname + window.location.search); }} /> : playing ? <Game selected={selected} settings={settings} resume={resume} onCheckpoint={save} onExit={() => { interact(); setPlaying(false); }} openSettings={() => open('settings')} onResult={result} /> : <div className="menu-shell">
       <header className="site-header"><a className="brand-link" href="#" aria-label="Dead Signal home" onClick={e => { e.preventDefault(); interact(); setPanel(null); }}><Brand /></a><nav aria-label="Main navigation"><button className={panel === null ? 'active' : ''} onClick={() => { interact(); setPanel(null); }}>PLAY<span /></button><button onClick={() => open('guide')}>FIELD GUIDE</button><button onClick={() => open('settings')}>SETTINGS</button></nav><div className="header-status"><span className="live-dot" /> OFFLINE. NOT ALONE.<span className="version">V.2.0</span></div><button className="mobile-menu icon-button" aria-label="Open field guide" onClick={() => open('guide')}><Menu /></button></header>
       <main><section className="hero"><MenuScene selected={selected} /><div className="hero-copy"><div className="eyebrow"><span className="eyebrow-line" />THE END WAS ONLY THE BEGINNING</div><h1>ONE SIGNAL.<br />GO <span>NORTH.</span></h1><p>100 locations. Ten survivors. One voice in the static.<br className="desktop-break" /> Scavenge the long road. Find the truth. Stay human.</p><div className="hero-actions"><button className="primary-button deploy-button" onClick={deploy}><Crosshair size={19} />BEGIN THE JOURNEY<ArrowUpRight size={21} /></button>{checkpoint && <button className="continue-campaign" onClick={() => { interact(); setResume(checkpoint); setPlaying(true); }}><Play size={14} />CONTINUE · LEVEL {checkpoint.level + 1}<small>{levelInfo(checkpoint.level).region.name} · {getClass(checkpoint.classId).name}</small></button>}<span className="mode-note">STORY CAMPAIGN <i /> 100 LEVELS</span></div><button className="how-to" onClick={() => open('guide')}><span><Play size={10} fill="currentColor" /></span>First time out there? <b>Read the field guide</b><ChevronRight size={14} /></button><div className="hero-specs"><span><span className="pixel-dot-grid">▦</span>64 × 64 PIXEL ART</span><span><AudioLines size={14} />ORIGINAL SOUNDTRACK</span><span><Skull size={14} />CHECKPOINT SAVES</span></div></div></section>
       <section className="class-section" aria-labelledby="classes-heading"><div className="section-heading"><div><span className="section-index">01 /</span><h2 id="classes-heading">CHOOSE YOUR SURVIVOR<span>Choose your edge.</span></h2></div><span className="class-count"><span className="live-dot" />10 CLASSES. ONE WAY NORTH.</span></div><div className="class-grid">{CLASSES.map((c, index) => <button key={c.id} className={`class-card ${selected === c.id ? 'selected' : ''}`} aria-pressed={selected === c.id} onClick={() => { interact(); setSelected(c.id); }} style={{ '--class-color': c.color } as React.CSSProperties}><div className="card-top"><span>{String(index + 1).padStart(2, '0')}<span> / {c.role}</span></span><span className="select-indicator">{selected === c.id ? <Check size={10} strokeWidth={3} /> : <span />}</span></div><div className="class-card-main"><div><h3>{c.name}</h3><p>{c.description}</p><span className="weapon-tag"><Crosshair size={11} />{c.weapon}</span></div><div className="portrait-platform"><PixelSprite id={c.id} /><span /></div></div><div className="card-divider" /><div className="card-bottom"><span>{c.id === 'assault' ? <Zap size={13} /> : c.id === 'medic' ? <Heart size={13} /> : c.id === 'engineer' ? <Settings2 size={13} /> : <Target size={13} />}{c.ability}</span><span className="selected-label">{selected === c.id ? 'SELECTED' : 'SELECT CLASS'}<ArrowUpRight size={12} /></span></div></button>)}</div>

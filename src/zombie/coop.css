@@ -1,0 +1,101 @@
+.squad-shell { min-height: 100dvh; max-width: 1440px; margin: auto; padding: 28px 5vw 50px; color: #d4dbc5; background: radial-gradient(ellipse at 65% 15%, #253c2f77, transparent 65%); }
+.squad-header { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding-bottom: 35px; border-bottom: 1px solid #b6c59322; }
+.squad-header > .secondary-button { width: auto; padding: 12px 16px; font-size: 9px; }
+.squad-shell h1 { font: 800 clamp(38px, 5vw, 70px)/1 'Barlow Condensed', sans-serif; letter-spacing: .5px; margin: 18px 0; }
+.squad-shell h2 { font: 600 32px 'Barlow Condensed', sans-serif; margin: 10px 0; }
+.squad-shell p { color: #a7b39a; font: 13px/1.8 'Barlow', sans-serif; }
+.squad-shell .modal-eyebrow { display: flex; align-items: center; gap: 8px; line-height: 1.8; }
+.squad-entry { display: grid; grid-template-columns: 1.2fr 1fr; gap: 7vw; align-items: center; max-width: 1060px; margin: 7vh auto 0; }
+.squad-intro h1 { font-size: clamp(54px, 6vw, 92px); }
+.squad-intro h1 > span { color: #ed9d6a; }
+.squad-intro p { font-size: 16px; max-width: 420px; }
+.squad-intro ul { list-style: none; padding: 16px 0; display: grid; gap: 15px; font-size: 13px; }
+.squad-intro li { display: flex; gap: 10px; align-items: center; }
+.squad-intro li svg { color: #c7ca9c; }
+.squad-intro > small { display: block; max-width: 400px; color: #91a080; font: 10px/1.9 'IBM Plex Mono', monospace; }
+.squad-card { background: #14271edb; border: 1px solid #bec99633; padding: 32px; box-shadow: 0 15px 70px #00100b55; }
+.squad-card .primary-button, .squad-card .secondary-button { width: 100%; margin-top: 16px; justify-content: center; }
+.squad-shell label { display: block; color: #a5b193; font: 9px 'IBM Plex Mono', monospace; letter-spacing: 1.5px; margin: 22px 0 10px; }
+.squad-shell input { min-width: 0; width: 100%; border: 1px solid #bcc49544; border-radius: 0; background: #081b13; padding: 14px; color: #e4d9b8; font: 16px 'IBM Plex Mono', monospace; outline-offset: 4px; }
+.squad-shell button:disabled { opacity: .4; cursor: not-allowed; }
+.squad-shell button:focus-visible, .squad-shell input:focus-visible { outline: 2px solid #edb57d; outline-offset: 4px; }
+.squad-divider { text-align: center; margin: 28px 0 0; padding-top: 24px; border-top: 1px solid #abb78c22; font: 8px 'IBM Plex Mono', monospace; letter-spacing: 1px; color: #86987d; }
+.squad-card .squad-fine-print { font: 9px/1.8 'IBM Plex Mono', monospace; margin-top: 22px; color: #8d9e81; }
+.squad-shell .squad-error { color: #f1a98c; }
+.squad-connecting { max-width: 520px; margin: 10vh auto; text-align: center; }
+.squad-connecting .modal-eyebrow { justify-content: center; margin-top: 24px; }
+.squad-lobby-title { display: flex; justify-content: space-between; gap: 30px; align-items: center; margin: 40px 0 30px; }
+.squad-lobby-title h1 { font-size: clamp(34px, 4vw, 54px); }
+.squad-invite { min-width: 270px; background: #14271e; border: 1px solid #bfc99133; padding: 18px; }
+.squad-invite label { margin: 0 0 10px; }
+.squad-invite input { border: 0; background: none; color: #edb57d; font-size: 24px; font-weight: bold; letter-spacing: 3px; padding: 0; }
+.squad-invite > div { display: flex; gap: 14px; margin-top: 14px; }
+.squad-invite button { background: none; border: 0; color: #c0cea9; display: flex; align-items: center; gap: 6px; font: 9px 'IBM Plex Mono', monospace; padding: 5px 0; }
+.squad-slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.squad-slot { border: 1px solid #c2c99633; background: #13251dcf; padding: 18px; min-height: 225px; }
+.squad-slot.occupied { border-top: 2px solid var(--class-color); }
+.slot-status { display: flex; justify-content: space-between; gap: 8px; font: 7px 'IBM Plex Mono', monospace; color: #9caa8c; }
+.slot-status b { font-weight: normal; color: #c09d77; }
+.slot-status .ready { color: #afd28d; }
+.squad-slot canvas { display: block; width: 72px; height: 72px; image-rendering: pixelated; margin: 22px auto 8px; }
+.squad-slot h3 { font: 600 22px 'Barlow Condensed', sans-serif; margin: 12px 0 5px; overflow-wrap: anywhere; }
+.squad-slot h3 small { color: #b7ca91; font: 6px 'IBM Plex Mono', monospace; margin-left: 8px; }
+.squad-slot p { font-size: 10px; margin: 0; }
+.squad-slot.empty { border-style: dashed; background: #11231a55; color: #6d8069; text-align: center; }
+.squad-slot.empty > span { display: block; text-align: left; font: 7px 'IBM Plex Mono', monospace; }
+.squad-slot.empty > svg { margin: 35px auto 10px; }
+.squad-slot.empty h3 { font-size: 17px; }
+.squad-slot.empty p { color: #7c8d74; }
+.squad-loadout { margin-top: 35px; }
+.squad-loadout h2 { font-size: 26px; }
+.squad-classes { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 7px; margin-top: 16px; }
+.squad-classes button { display: flex; flex-direction: column; align-items: center; min-width: 0; border: 1px solid #bcc99133; background: #13271e; color: #b6c3aa; padding: 8px 3px 12px; }
+.squad-classes button.selected { border-color: var(--class-color); box-shadow: inset 0 -3px var(--class-color); background: #29382a; color: #e3ddc3; }
+.squad-classes canvas { image-rendering: pixelated; width: 48px; height: 48px; }
+.squad-classes strong { font: 500 16px 'Barlow Condensed', sans-serif; }
+.squad-classes small { font: 6px 'IBM Plex Mono', monospace; margin-top: 7px; }
+.squad-loadout > p { min-height: 25px; font-size: 12px; }
+.squad-loadout > p b { color: #e4c393; }
+.squad-deploy { border-top: 1px solid #b8c59633; margin-top: 24px; padding-top: 20px; display: flex; justify-content: space-between; gap: 24px; align-items: center; }
+.squad-deploy p { font-size: 14px; margin: 0; }
+.squad-deploy small { display: block; font: 8px/1.8 'IBM Plex Mono', monospace; margin-top: 8px; color: #819275; }
+.squad-status { padding: 12px 16px; border: 1px solid #b7c58b44; background: #223322; }
+.coop-entry-banner { display: flex; align-items: center; justify-content: center; gap: 16px; width: 100%; padding: 12px 20px; border: 0; border-bottom: 1px solid #bdc69033; color: #bfcfac; background: #1a3024; font: 9px 'IBM Plex Mono', monospace; letter-spacing: 1px; }
+.coop-entry-banner > span { display: flex; align-items: center; gap: 16px; }.coop-entry-banner b { font-size: 7px; color: #8a9e7b; font-weight: normal; }.coop-entry-banner strong { color: #e6be90; display: flex; align-items: center; gap: 7px; font-weight: normal; }.coop-entry-banner:hover { background: #273d2a; }
+.coop-game .game-canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+.coop-topbar { position: absolute; inset: 0 0 auto; padding: 20px 25px; display: flex; align-items: center; justify-content: space-between; gap: 20px; background: linear-gradient(#07180fec, transparent); pointer-events: none; }
+.coop-topbar button { pointer-events: auto; }
+.coop-objective { position: absolute; top: 102px; left: 25px; width: 310px; padding: 14px; background: #11271fe8; border: 1px solid #bac59733; pointer-events: none; }
+.coop-objective > span { display: flex; align-items: center; gap: 8px; color: #c6d1ad; font: 8px 'IBM Plex Mono', monospace; }
+.coop-objective > span b { margin-left: auto; color: #e9b985; }
+.coop-objective > strong { display: flex; gap: 12px; justify-content: space-between; font: 500 14px 'Barlow', sans-serif; margin: 13px 0; }
+.coop-objective strong small { color: #e9bd85; white-space: nowrap; }
+.coop-objective > small { font: 7px/1.7 'IBM Plex Mono', monospace; color: #93a789; }
+.coop-roster { position: absolute; top: 102px; right: 25px; width: 175px; display: grid; gap: 7px; pointer-events: none; }
+.coop-roster > div { position: relative; border: 1px solid #a4b78433; background: #10251de8; padding: 9px 10px 12px; overflow: hidden; }
+.coop-roster span { display: block; font: 10px 'IBM Plex Mono', monospace; color: var(--member-color); overflow-wrap: anywhere; }
+.coop-roster small { font: 7px 'IBM Plex Mono', monospace; color: #acb79b; }
+.coop-roster i { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--member-color); transition: width .15s; }
+.coop-roster .downed { border-color: #dc917766; }
+.coop-notice { position: absolute; top: 75px; left: 50%; transform: translateX(-50%); padding: 9px 14px; max-width: 65%; text-align: center; background: #11251ef2; color: #e2c997; border: 1px solid #d7bd7866; font: 9px/1.6 'IBM Plex Mono', monospace; pointer-events: none; }
+.coop-bottom { position: absolute; inset: auto 0 0; padding: 22px 25px; display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; background: linear-gradient(transparent, #07180fe8); pointer-events: none; }
+.coop-bottom > button { pointer-events: auto; }
+.coop-menu .gear-list { margin-block: 20px; text-align: left; }
+.coop-menu > small { display: block; margin-top: 18px; color: #9baa90; font: 9px/1.8 'IBM Plex Mono', monospace; }
+.coop-downed { position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 12px; text-align: center; width: min(85%, 400px); padding: 20px; color: #eab399; background: #20271de6; border: 1px solid #c1846355; pointer-events: none; }
+.coop-downed strong { font: 600 23px 'Barlow Condensed', sans-serif; }.coop-downed span { font: 11px/1.8 'Barlow', sans-serif; }
+.coop-connection { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); background: #283721ef; color: #ded19e; padding: 10px 16px; max-width: 90%; font: 9px/1.7 'IBM Plex Mono', monospace; text-align: center; }
+@media (max-width: 1000px) { .squad-classes { grid-template-columns: repeat(5, minmax(0, 1fr)); }.squad-entry { gap: 30px; }.squad-slot { padding: 14px; }.slot-status { flex-wrap: wrap; }.coop-roster { width: 145px; } }
+@media (max-width: 600px) {
+  .coop-entry-banner { gap: 10px; font-size: 7px; padding-inline: 10px; }.coop-entry-banner b { display: none; }
+  .squad-shell { padding: 18px 16px 35px; }.squad-header { padding-bottom: 22px; }.squad-header > svg { display: none; }.squad-header .secondary-button { padding: 10px; font-size: 7px; }.squad-header .journey-logo { font-size: 20px; }
+  .squad-entry { grid-template-columns: 1fr; margin-top: 30px; gap: 25px; }.squad-intro h1 { font-size: 58px; }.squad-intro p { font-size: 14px; }.squad-intro ul { padding-block: 8px; font-size: 12px; gap: 12px; }.squad-intro > small { font-size: 8px; }.squad-card { padding: 24px; }
+  .squad-lobby-title { flex-direction: column; align-items: stretch; gap: 15px; margin-top: 26px; }.squad-lobby-title p { font-size: 12px; }.squad-invite { min-width: 0; }.squad-invite input { font-size: 26px; }
+  .squad-slots { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }.squad-slot { min-height: 205px; }.squad-slot h3 { font-size: 21px; }.slot-status { font-size: 6px; }.squad-slot p { font-size: 9px; }.squad-slot.empty h3 { font-size: 15px; }
+  .squad-classes { gap: 5px; }.squad-classes canvas { width: 40px; height: 40px; }.squad-classes strong { font-size: 13px; }.squad-classes small { display: none; }.squad-loadout > p { font-size: 11px; }.squad-deploy { flex-direction: column; align-items: stretch; gap: 15px; }.squad-deploy .primary-button, .squad-deploy .secondary-button { justify-content: center; }.squad-deploy small { font-size: 7px; }
+  .coop-topbar { padding: 15px 12px; gap: 12px; }.coop-topbar .journey-logo { display: none; }.coop-topbar .journey-location { align-items: flex-start; }.coop-objective { top: 77px; left: 12px; width: calc(100% - 155px); padding: 10px; }.coop-objective > span { font-size: 6px; gap: 5px; }.coop-objective > strong { font-size: 11px; margin: 9px 0; }.coop-objective > small { font-size: 5px; }
+  .coop-roster { top: 77px; right: 12px; width: 122px; gap: 4px; }.coop-roster > div { padding: 6px 7px 9px; }.coop-roster span { font-size: 8px; }.coop-roster small { font-size: 6px; }.coop-notice { top: 268px; max-width: 90%; width: 90%; font-size: 8px; }
+  .coop-bottom { padding: 15px 12px; gap: 8px; }.coop-bottom .health-panel { width: 160px; }.coop-bottom .ability-panel { display: none; }.coop-bottom .ammo-panel { margin-left: auto; }.coop-game .interact-prompt { bottom: 40%; font-size: 10px; max-width: 90%; }.coop-connection { bottom: 95px; font-size: 7px; width: 90%; }.coop-menu { padding: 24px 20px; }
+}
+@media (pointer: coarse) { .coop-game .touch-controls { bottom: 118px; }.coop-game .touch-heal { bottom: 228px; }.coop-bottom .ability-panel { display: none; } }
+@media (max-height: 500px) { .coop-topbar { padding-block: 10px; }.coop-objective, .coop-roster { top: 65px; }.coop-roster > div { padding-block: 4px 7px; }.coop-objective > small { display: none; }.coop-bottom { padding-block: 10px; }.coop-game .touch-controls { bottom: 90px; }.coop-game .touch-heal { bottom: 190px; }.coop-notice { top: 65px; width: auto; max-width: 35%; }.coop-roster { width: 125px; }.coop-roster span { font-size: 8px; } }

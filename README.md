@@ -2,6 +2,18 @@
 
 An original top-down, pixel-art zombie road adventure built with React, TypeScript, Canvas 2D, and Web Audio. Follow a mysterious evacuation broadcast through **100 northbound levels across 20 location themes**, from Blackwater to Dawn Array. All survivor sprites, infected animation frames, supply icons, landscapes, music, and sound effects are generated locally—no paid APIs or asset downloads are required. Character and UI textures use native 64 × 64 canvases with nearest-neighbor scaling.
 
+## Private online co-op
+
+Choose **PLAY WITH FRIENDS**, enter a call sign, and create a private lobby. Send its ten-character code or invite link to up to three friends. They open the same updated website, join the lobby, choose any of the ten classes, and mark **READY**. The host deploys when at least two players are connected and everyone is ready.
+
+- The host's browser simulates the shared infected, bullets, receiver objectives, gear and health. Guests send bounded input commands, not positions or damage. Frames are sent at 20 Hz; input expires if packets stop arriving. Names render as text, and messages, capacities and game versions are validated.
+- Supply cases give every squad member equipment and a medkit. There is no friendly fire. A downed survivor can be revived by a nearby teammate with **F** and one medkit. Securing a receiver heals/revives the whole squad. A squad wipe lets the host retry the last shared checkpoint.
+- All players finish or skip each story scene before travel resumes. Gather all standing survivors at the northern gate to move to the next level.
+- The host must keep their tab open. Opening the host's menu, switching away from their tab, or minimizing it pauses everyone. Guests' menus stop their own controls but do not pause combat. Host departure ends the room; there is no host migration, mid-mission joining, or reconnection to a running room. Co-op checkpoints live only for that room and never overwrite solo localStorage saves.
+- Uses pinned **PeerJS 1.5.5**, its free public signaling service and browser WebRTC data channels. No application backend, account, webcam, microphone permission or Netlify server is needed. The existing static ZIP upload still works. The signaling service is an external dependency; restricted networks/NATs can prevent a peer connection. This is invite-code privacy, not authenticated accounts or public matchmaking. Production reliability on all networks would require operating signaling/TURN infrastructure.
+
+`npm test` includes transport/session tests using an in-memory broker and co-op simulation/protocol tests, in addition to solo regressions. These are not a substitute for two-browser, cross-device or cross-network WebRTC playtesting; that end-to-end path has not yet been verified for this revision.
+
 ## The journey
 
 - Continuous local encounters replace survival waves. Travel north, scavenge roadside cases, restore three receivers, then cross the northern gate.
